@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 # add the connector's jar under a "libs" folder to be ran
-exec /usr/bin/env java -jar "$SCRIPT_DIR/libs/conduit-connector-s3-java-1.0-SNAPSHOT.jar"
+exec /usr/bin/env java -jar "$SCRIPT_DIR/libs/conduit-connector-s3-iceberg-1.0-SNAPSHOT.jar"
 
