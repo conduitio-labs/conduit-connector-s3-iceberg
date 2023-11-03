@@ -1,0 +1,27 @@
+<configuration>
+    <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <pattern>
+                    <omitEmptyFields>true</omitEmptyFields>
+                    <!-- All available conversion words: https://logback.qos.ch/manual/layouts.html#conversionWord -->
+                    <pattern>
+                        {
+                        "@level": "%level",
+                        "@message": "%message",
+                        "loggerName": "%logger",
+                        "thread": "%thread",
+                        "kvp": "%kvp",
+                        "exception": "%rootException"
+                        }
+                    </pattern>
+                </pattern>
+            </providers>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDERR"/>
+    </root>
+</configuration>
