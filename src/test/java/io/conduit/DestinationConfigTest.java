@@ -26,6 +26,7 @@ class DestinationConfigTest {
         assertEquals("org.apache.iceberg.rest.RESTCatalog", result.getCatalogImpl());
         assertEquals(
             Map.of(
+                "catalog-impl", "org.apache.iceberg.rest.RESTCatalog",
                 "uri", "http://localhost:8181",
                 "s3.endpoint", "http://localhost:9000"
             ),

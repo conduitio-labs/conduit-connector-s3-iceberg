@@ -16,11 +16,14 @@
 
 package io.conduit;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 
 /**
@@ -29,6 +32,11 @@ import org.apache.iceberg.catalog.TableIdentifier;
 @Getter
 @Setter
 public class DestinationConfig {
+    public static final String KEY_TABLE_NAMESPACE = "table.namespace";
+    public static final String KEY_TABLE_NAME = "table.name";
+    public static final String KEY_CATALOG_IMPL = "catalog.impl";
+    public static final String CATALOG_PREFIX = "catalog.";
+
     private String catalogImpl;
     private Map<String, String> catalogProperties;
     private TableIdentifier tableID;
@@ -37,11 +45,39 @@ public class DestinationConfig {
     /**
      * Creates a new <code>DestinationConfig</code> instance from a map with configuration parameters.
      */
-    public static DestinationConfig fromMap(Map<String, String> map) {
-        if (Utils.isEmpty(map)) {
-            return new DestinationConfig();
+    public static DestinationConfig fromMap(Map<String, String> cfgMap) {
+        DestinationConfig cfg = new DestinationConfig();
+        if (Utils.isEmpty(cfgMap)) {
+            return cfg;
         }
 
-        return new DestinationConfig();
+        // Catalog implementation class
+        String catalogImpl = cfgMap.get(KEY_CATALOG_IMPL);
+        if (catalogImpl == null) {
+            throw new IllegalArgumentException("missing " + KEY_CATALOG_IMPL);
+        }
+        cfg.setCatalogImpl(catalogImpl);
+
+        // Catalog properties
+        Map<String, String> catalogProps = new HashMap<>();
+        cfgMap.forEach((key, value) -> {
+            if (key.startsWith(CATALOG_PREFIX)) {
+                catalogProps.put(key.replaceFirst(CATALOG_PREFIX, ""), value);
+            }
+        });
+        catalogProps.remove(KEY_CATALOG_IMPL.replaceFirst(CATALOG_PREFIX, ""));
+        catalogProps.put(CatalogProperties.CATALOG_IMPL, catalogImpl);
+        cfg.setCatalogProperties(catalogProps);
+
+        // Table ID
+        cfg.setTableID(
+            TableIdentifier.of(
+                Namespace.of(cfgMap.get(KEY_TABLE_NAMESPACE)),
+                cfgMap.get(KEY_TABLE_NAME)
+            )
+        );
+
+        // Schema
+        return cfg;
     }
 }
