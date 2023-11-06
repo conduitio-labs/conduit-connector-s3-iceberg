@@ -16,10 +16,12 @@
 
 package io.conduit;
 
-import java.util.HashMap;
 import java.util.Map;
+
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.catalog.TableIdentifier;
 
 /**
  * Contains the configuration for a Conduit destination connector.
@@ -27,6 +29,11 @@ import lombok.Setter;
 @Getter
 @Setter
 public class DestinationConfig {
+    private String catalogImpl;
+    private Map<String, String> catalogProperties;
+    private TableIdentifier tableID;
+    private Schema schema;
+
     /**
      * Creates a new <code>DestinationConfig</code> instance from a map with configuration parameters.
      */
@@ -34,15 +41,7 @@ public class DestinationConfig {
         if (Utils.isEmpty(map)) {
             return new DestinationConfig();
         }
-        return fromMap(map, DestinationConfig.class);
-    }
 
-    protected static <T extends DestinationConfig> T fromMap(Map<String, String> map, Class<T> clazz) {
-        Map<String, String> connectorMap = new HashMap<>();
-
-        map.forEach(connectorMap::put);
-        T cfg = Utils.mapper.convertValue(connectorMap, clazz);
-
-        return cfg;
+        return new DestinationConfig();
     }
 }
