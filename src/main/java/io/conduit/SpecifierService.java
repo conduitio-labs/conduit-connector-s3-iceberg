@@ -42,7 +42,7 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
     public void specify(Request request, StreamObserver<Response> responseObserver) {
         responseObserver.onNext(
                 Response.newBuilder()
-                        .setName("s3-java")
+                        .setName("s3-iceberg")
                         .setSummary("An S3 destination plugin for Conduit, written in Java.")
                         .setVersion("v0.1.0")
                         .setAuthor("Meroxa, Inc.")

@@ -1,1 +1,1 @@
-# conduit-connector-s3-java
+# conduit-connector-s3-iceberg
