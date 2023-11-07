@@ -20,6 +20,10 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.google.common.collect.ImmutableMap;
 import lombok.Getter;
@@ -43,6 +47,9 @@ public class DestinationConfig {
     public static final String KEY_CATALOG_IMPL = "catalog.impl";
     public static final String CATALOG_PREFIX = "catalog.";
     public static final String SCHEMA_PREFIX = "schema.";
+
+    public static final Pattern listTypeRegex = Pattern.compile("^list<(.+)>$");
+    public static final Pattern mapTypeRegex = Pattern.compile("^map<(.+)\\s*,\\s*(.+)>$");
 
     private static final Map<String, Type.PrimitiveType> TYPES = ImmutableMap.<String, Type.PrimitiveType>builder()
         .put(Types.BooleanType.get().toString(), Types.BooleanType.get())
@@ -113,7 +120,7 @@ public class DestinationConfig {
             boolean optional = false;
             Type type = null;
 
-            for (String optStr : opts.split(",")) {
+            for (String optStr : opts.split(";")) {
                 String[] opt = optStr.split(":");
                 if (opt.length != 2) {
                     throw new IllegalArgumentException(
@@ -129,13 +136,14 @@ public class DestinationConfig {
                         optional = Boolean.parseBoolean(opt[1]);
                         break;
                     case "type":
-                        type = TYPES.get(opt[1]);
+                        type = getType(opt[1]);
                         break;
                     default:
                         throw new IllegalArgumentException("unknown field option: " + opt[0]);
                 }
             }
 
+            Objects.requireNonNull(type, "type not found or not provided");
             columns.add(
                 Types.NestedField.of(id, optional, name, type)
             );
@@ -143,5 +151,25 @@ public class DestinationConfig {
 
         cfg.setSchema(new Schema(columns));
         return cfg;
+    }
+
+    private static Type getType(String typeName) {
+        Type.PrimitiveType type = TYPES.get(typeName);
+        if (type != null) {
+            return type;
+        }
+        // not in primitive types, could be a nested
+        // Check if input1 matches the pattern and extract "something"
+        Matcher matcher = listTypeRegex.matcher(typeName);
+        if (matcher.matches()) {
+            return Types.ListType.ofRequired(Math.abs(new Random().nextInt()), getType(matcher.group(1)));
+        }
+
+        matcher = mapTypeRegex.matcher(typeName);
+        if (matcher.matches()) {
+            return Types.MapType.ofRequired(Math.abs(new Random().nextInt()), Math.abs(new Random().nextInt()), getType(matcher.group(1)), getType(matcher.group(2)));
+        }
+
+        return null;
     }
 }
