@@ -5,11 +5,6 @@ on:
   pull_request:
     types: [ opened, synchronize, reopened ]
 jobs:
-  # Unit tests and the Sonar analysis is done in a single job
-  # because SonarCloud requires the test coverage report,
-  # which is generated after unit tests are executed.
-  # It's possible to do it in separate jobs (so it appears a bit prettier in the PR checks),
-  # but that requires the jobs to share the report (which can be done, but doesn't pay out).
   test-analyze:
     name: Test and analyze code
     runs-on: ubuntu-latest
