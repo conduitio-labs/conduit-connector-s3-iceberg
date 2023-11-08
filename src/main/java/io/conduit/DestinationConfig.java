@@ -42,11 +42,12 @@ import static java.util.function.Predicate.not;
 public class DestinationConfig {
     public static final Logger logger = LoggerFactory.getLogger(DestinationConfig.class);
 
-    private static final String KEY_NAMESPACE = "namespace";
-    private static final String KEY_TABLE_NAME = "table.name";
-    private static final String KEY_CATALOG_NAME = "catalog.name";
+    public static final String KEY_NAMESPACE = "namespace";
+    public static final String KEY_TABLE_NAME = "table.name";
+    public static final String KEY_CATALOG_NAME = "catalog.name";
     private static final List<String> REQUIRED_KEYS = List.of(KEY_NAMESPACE, KEY_TABLE_NAME, KEY_CATALOG_NAME);
-    public static final String CATALOG_PREFIX = "catalog.";
+
+    private static final String CATALOG_PREFIX = "catalog.";
 
     private final String namespace;
     private final String tableName;

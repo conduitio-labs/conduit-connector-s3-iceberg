@@ -21,9 +21,9 @@ import java.util.Map;
 
 import io.conduit.grpc.Specifier;
 import io.conduit.grpc.Specifier.Parameter;
+import io.conduit.grpc.Specifier.Parameter.Validation;
 import io.conduit.grpc.Specifier.Specify.Request;
 import io.conduit.grpc.Specifier.Specify.Response;
-import io.conduit.grpc.Specifier.Parameter.Validation;
 import io.conduit.grpc.SpecifierPluginGrpc;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
@@ -41,27 +41,47 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
     @Override
     public void specify(Request request, StreamObserver<Response> responseObserver) {
         responseObserver.onNext(
-                Response.newBuilder()
-                        .setName("s3-iceberg")
-                        .setSummary("An S3 destination plugin for Conduit, written in Java.")
-                        .setVersion("v0.1.0")
-                        .setAuthor("Meroxa, Inc.")
-                        .putAllDestinationParams(buildDestinationParams())
-                        .build()
+            Response.newBuilder()
+                .setName("s3-iceberg")
+                .setSummary("An S3 destination plugin for Conduit, written in Java.")
+                .setVersion("v0.1.0")
+                .setAuthor("Meroxa, Inc.")
+                .putAllDestinationParams(buildDestinationParams())
+                .build()
         );
         responseObserver.onCompleted();
     }
 
     private Map<String, Specifier.Parameter> buildDestinationParams() {
-        // todo add all params
         Map<String, Parameter> params = new HashMap<>();
-        params.put("aws.accessKeyId", Specifier.Parameter.newBuilder()
-                .setDescription(
-                "AWS access key id.")
+        params.put(
+            DestinationConfig.KEY_CATALOG_NAME,
+            Specifier.Parameter.newBuilder()
+                .setDescription("Catalog name")
                 .setDefault("")
                 .setType(Specifier.Parameter.Type.TYPE_STRING)
-//                .addValidations(requiredValidation)
-                .build());
+                .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            DestinationConfig.KEY_NAMESPACE,
+            Specifier.Parameter.newBuilder()
+                .setDescription("Namespace")
+                .setDefault("")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            DestinationConfig.KEY_TABLE_NAME,
+            Specifier.Parameter.newBuilder()
+                .setDescription("Table name")
+                .setDefault("")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .build()
+        );
+
         return params;
     }
 }
