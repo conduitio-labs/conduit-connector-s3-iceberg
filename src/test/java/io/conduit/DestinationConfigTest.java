@@ -1,6 +1,8 @@
 package io.conduit;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.types.Types;
@@ -39,27 +41,34 @@ class DestinationConfigTest {
             TableIdentifier.of("webapp", "dummy_type"),
             result.getTableID()
         );
-        var resultTypes = result.getSchema().columns().toArray();
+        var resultTypes = result.getSchema().columns();
         assertEquals(
             Types.NestedField.optional(1, "string_field", Types.StringType.get()),
-            resultTypes[0]
+            findByName(resultTypes, "string_field")
         );
         assertEquals(
-            Types.NestedField.required(2, "timestamp_field", Types.TimestampType.withZone()),
-            resultTypes[1]
+            Types.NestedField.required(2, "timestamptz_field", Types.TimestampType.withZone()),
+            findByName(resultTypes, "timestamptz_field")
         );
         assertEquals(
             Types.NestedField.required(3, "list_field", Types.ListType.ofRequired(0, Types.StringType.get())),
-            resultTypes[2]
+            findByName(resultTypes, "list_field")
         );
         assertEquals(
             Types.NestedField.required(4, "nested_list_field", Types.ListType.ofRequired(0, Types.StringType.get())),
-            resultTypes[2]
+            findByName(resultTypes, "nested_list_field")
         );
         assertEquals(
             Types.NestedField.required(5, "map_field", Types.MapType.ofRequired(0, 0, Types.StringType.get(), Types.BooleanType.get())),
-            resultTypes[2]
+            findByName(resultTypes, "map_field")
         );
+    }
+
+    private Types.NestedField findByName(List<Types.NestedField> fields, String name) {
+        return fields.stream()
+            .filter(f -> Objects.equals(f.name(), name))
+            .findFirst()
+            .orElse(null);
     }
 
 }
