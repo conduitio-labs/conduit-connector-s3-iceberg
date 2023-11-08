@@ -17,161 +17,94 @@
 package io.conduit;
 
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Random;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import com.google.common.collect.ImmutableMap;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.iceberg.CatalogProperties;
-import org.apache.iceberg.Schema;
-import org.apache.iceberg.catalog.Namespace;
-import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.types.Type;
-import org.apache.iceberg.types.Types.*;
+import lombok.ToString;
+import org.apache.hadoop.util.hash.Hash;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import static java.util.function.Predicate.not;
 
 /**
  * Contains the configuration for a Conduit destination connector.
  */
 @Getter
 @Setter
+@AllArgsConstructor
+@EqualsAndHashCode
+@ToString
 public class DestinationConfig {
-    // todo check if this always requires a bucket? auto-create?
-    public static final String KEY_TABLE_NAMESPACE = "table.namespace";
-    public static final String KEY_TABLE_NAME = "table.name";
-    public static final String KEY_CATALOG_IMPL = "catalog.impl";
+    public static final Logger logger = LoggerFactory.getLogger(DestinationConfig.class);
+
+    private static final String KEY_NAMESPACE = "namespace";
+    private static final String KEY_TABLE_NAME = "table.name";
+    private static final String KEY_CATALOG_NAME = "catalog.name";
+    private static final List<String> REQUIRED_KEYS = List.of(KEY_NAMESPACE, KEY_TABLE_NAME, KEY_CATALOG_NAME);
     public static final String CATALOG_PREFIX = "catalog.";
-    public static final String SCHEMA_PREFIX = "schema.";
 
-    public static final Pattern listTypeRegex = Pattern.compile("^list<(.+)>$");
-    public static final Pattern mapTypeRegex = Pattern.compile("^map<(.+)\\s*,\\s*(.+)>$");
-
-    // Maps primitive type names to types
-    private static final Map<String, Type.PrimitiveType> PRIMITIVE_TYPES =
-        ImmutableMap.<String, Type.PrimitiveType>builder()
-            .put(BooleanType.get().toString(), BooleanType.get())
-            .put(IntegerType.get().toString(), IntegerType.get())
-            .put(LongType.get().toString(), LongType.get())
-            .put(FloatType.get().toString(), FloatType.get())
-            .put(DoubleType.get().toString(), DoubleType.get())
-            .put(DateType.get().toString(), DateType.get())
-            .put(TimeType.get().toString(), TimeType.get())
-            .put(TimestampType.withZone().toString(), TimestampType.withZone())
-            .put(TimestampType.withoutZone().toString(), TimestampType.withoutZone())
-            .put(StringType.get().toString(), StringType.get())
-            .put(UUIDType.get().toString(), UUIDType.get())
-            .put(BinaryType.get().toString(), BinaryType.get())
-            .buildOrThrow();
-
-    private String catalogImpl;
-    private Map<String, String> catalogProperties;
-    private TableIdentifier tableID;
-    private Schema schema;
+    private final String namespace;
+    private final String tableName;
+    private final String catalogName;
+    private final Map<String, String> catalogProperties;
 
     /**
      * Creates a new <code>DestinationConfig</code> instance from a map with configuration parameters.
      */
     public static DestinationConfig fromMap(Map<String, String> cfgMap) {
-        DestinationConfig cfg = new DestinationConfig();
-        if (Utils.isEmpty(cfgMap)) {
-            return cfg;
+        checkRequired(cfgMap);
+
+        String namespace = cfgMap.get(KEY_NAMESPACE);
+        String tableName = cfgMap.get(KEY_TABLE_NAME);
+        String catalogName = cfgMap.get(KEY_CATALOG_NAME);
+
+        // Catalog properties, prefixed with catalog.catalog_name
+        var catalogPropsPrefixed = new HashMap<>(cfgMap);
+        catalogPropsPrefixed.remove(KEY_CATALOG_NAME);
+        catalogPropsPrefixed.remove(KEY_NAMESPACE);
+        catalogPropsPrefixed.remove(KEY_TABLE_NAME);
+
+        var unknownProps = catalogPropsPrefixed.keySet().stream()
+            .filter(not(k -> k.startsWith(CATALOG_PREFIX + catalogName + ".")))
+            .toList();
+        if (!Utils.isEmpty(unknownProps)) {
+            throw new IllegalArgumentException("unknown properties: " + unknownProps);
         }
 
-        // Catalog implementation class
-        String catalogImpl = cfgMap.get(KEY_CATALOG_IMPL);
-        if (catalogImpl == null) {
-            throw new IllegalArgumentException("missing " + KEY_CATALOG_IMPL);
-        }
-        cfg.setCatalogImpl(catalogImpl);
-
-        // Catalog properties
-        Map<String, String> catalogProps = new HashMap<>();
-        cfgMap.forEach((key, value) -> {
-            if (key.startsWith(CATALOG_PREFIX)) {
-                catalogProps.put(key.replaceFirst(CATALOG_PREFIX, ""), value);
-            }
-        });
-        catalogProps.remove(KEY_CATALOG_IMPL.replaceFirst(CATALOG_PREFIX, ""));
-        catalogProps.put(CatalogProperties.CATALOG_IMPL, catalogImpl);
-        cfg.setCatalogProperties(catalogProps);
-
-        // Table ID
-        cfg.setTableID(
-            TableIdentifier.of(
-                Namespace.of(cfgMap.get(KEY_TABLE_NAMESPACE)),
-                cfgMap.get(KEY_TABLE_NAME)
-            )
-        );
-
-        // Schema
-        Map<String, String> schemaMap = new HashMap<>();
-        cfgMap.forEach((k, v) -> {
-            if (k.startsWith(SCHEMA_PREFIX)) {
-                schemaMap.put(k.replaceFirst(SCHEMA_PREFIX, ""), v);
-            }
-        });
-
-        List<NestedField> columns = new LinkedList<>();
-        schemaMap.forEach((name, opts) -> {
-            int id = 0;
-            boolean optional = false;
-            Type type = null;
-
-            for (String optStr : opts.split(";")) {
-                String[] opt = optStr.split(":");
-                if (opt.length != 2) {
-                    throw new IllegalArgumentException(
-                        String.format("malformed schema spec: '%s'", optStr)
-                    );
-                }
-
-                switch (opt[0]) {
-                    case "id":
-                        id = Integer.parseInt(opt[1]);
-                        break;
-                    case "optional":
-                        optional = Boolean.parseBoolean(opt[1]);
-                        break;
-                    case "type":
-                        type = getType(opt[1]);
-                        break;
-                    default:
-                        throw new IllegalArgumentException("unknown field option: " + opt[0]);
-                }
-            }
-
-            Objects.requireNonNull(type, "type not found or not provided");
-            columns.add(
-                NestedField.of(id, optional, name, type)
+        Map<String, String> catalogProperties = new HashMap<>();
+        for (Map.Entry<String, String> entry : catalogPropsPrefixed.entrySet()) {
+            catalogProperties.put(
+                entry.getKey().replaceFirst(CATALOG_PREFIX + catalogName + ".", ""),
+                entry.getValue()
             );
-        });
+        }
 
-        cfg.setSchema(new Schema(columns));
-        return cfg;
+        return new DestinationConfig(
+            namespace,
+            tableName,
+            catalogName,
+            catalogProperties
+        );
     }
 
-    private static Type getType(String typeName) {
-        Type.PrimitiveType type = PRIMITIVE_TYPES.get(typeName);
-        if (type != null) {
-            return type;
-        }
-        // not in primitive types, could be a nested
-        // Check if input1 matches the pattern and extract "something"
-        Matcher matcher = listTypeRegex.matcher(typeName);
-        if (matcher.matches()) {
-            return ListType.ofRequired(Math.abs(new Random().nextInt()), getType(matcher.group(1)));
+    private static void checkRequired(Map<String, String> cfgMap) {
+        List<String> missing = REQUIRED_KEYS.stream()
+            .filter(not(cfgMap::containsKey))
+            .toList();
+
+        if (!Utils.isEmpty(missing)) {
+            throw new IllegalArgumentException("missing keys: " + missing);
         }
 
-        matcher = mapTypeRegex.matcher(typeName);
-        if (matcher.matches()) {
-            return MapType.ofRequired(Math.abs(new Random().nextInt()), Math.abs(new Random().nextInt()), getType(matcher.group(1)), getType(matcher.group(2)));
+        String catalogImplKey = CATALOG_PREFIX + cfgMap.get(KEY_CATALOG_NAME) + ".catalog-impl";
+        if (!cfgMap.containsKey(catalogImplKey)) {
+            throw new IllegalArgumentException("missing " + catalogImplKey);
         }
-
-        return null;
     }
+
 }
