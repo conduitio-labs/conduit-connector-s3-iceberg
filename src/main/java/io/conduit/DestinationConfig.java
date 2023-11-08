@@ -33,7 +33,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.types.Type;
-import org.apache.iceberg.types.Types;
+import org.apache.iceberg.types.Types.*;
 
 /**
  * Contains the configuration for a Conduit destination connector.
@@ -51,20 +51,22 @@ public class DestinationConfig {
     public static final Pattern listTypeRegex = Pattern.compile("^list<(.+)>$");
     public static final Pattern mapTypeRegex = Pattern.compile("^map<(.+)\\s*,\\s*(.+)>$");
 
-    private static final Map<String, Type.PrimitiveType> TYPES = ImmutableMap.<String, Type.PrimitiveType>builder()
-        .put(Types.BooleanType.get().toString(), Types.BooleanType.get())
-        .put(Types.IntegerType.get().toString(), Types.IntegerType.get())
-        .put(Types.LongType.get().toString(), Types.LongType.get())
-        .put(Types.FloatType.get().toString(), Types.FloatType.get())
-        .put(Types.DoubleType.get().toString(), Types.DoubleType.get())
-        .put(Types.DateType.get().toString(), Types.DateType.get())
-        .put(Types.TimeType.get().toString(), Types.TimeType.get())
-        .put(Types.TimestampType.withZone().toString(), Types.TimestampType.withZone())
-        .put(Types.TimestampType.withoutZone().toString(), Types.TimestampType.withoutZone())
-        .put(Types.StringType.get().toString(), Types.StringType.get())
-        .put(Types.UUIDType.get().toString(), Types.UUIDType.get())
-        .put(Types.BinaryType.get().toString(), Types.BinaryType.get())
-        .buildOrThrow();
+    // Maps primitive type names to types
+    private static final Map<String, Type.PrimitiveType> PRIMITIVE_TYPES =
+        ImmutableMap.<String, Type.PrimitiveType>builder()
+            .put(BooleanType.get().toString(), BooleanType.get())
+            .put(IntegerType.get().toString(), IntegerType.get())
+            .put(LongType.get().toString(), LongType.get())
+            .put(FloatType.get().toString(), FloatType.get())
+            .put(DoubleType.get().toString(), DoubleType.get())
+            .put(DateType.get().toString(), DateType.get())
+            .put(TimeType.get().toString(), TimeType.get())
+            .put(TimestampType.withZone().toString(), TimestampType.withZone())
+            .put(TimestampType.withoutZone().toString(), TimestampType.withoutZone())
+            .put(StringType.get().toString(), StringType.get())
+            .put(UUIDType.get().toString(), UUIDType.get())
+            .put(BinaryType.get().toString(), BinaryType.get())
+            .buildOrThrow();
 
     private String catalogImpl;
     private Map<String, String> catalogProperties;
@@ -114,7 +116,7 @@ public class DestinationConfig {
             }
         });
 
-        List<Types.NestedField> columns = new LinkedList<>();
+        List<NestedField> columns = new LinkedList<>();
         schemaMap.forEach((name, opts) -> {
             int id = 0;
             boolean optional = false;
@@ -145,7 +147,7 @@ public class DestinationConfig {
 
             Objects.requireNonNull(type, "type not found or not provided");
             columns.add(
-                Types.NestedField.of(id, optional, name, type)
+                NestedField.of(id, optional, name, type)
             );
         });
 
@@ -154,7 +156,7 @@ public class DestinationConfig {
     }
 
     private static Type getType(String typeName) {
-        Type.PrimitiveType type = TYPES.get(typeName);
+        Type.PrimitiveType type = PRIMITIVE_TYPES.get(typeName);
         if (type != null) {
             return type;
         }
@@ -162,12 +164,12 @@ public class DestinationConfig {
         // Check if input1 matches the pattern and extract "something"
         Matcher matcher = listTypeRegex.matcher(typeName);
         if (matcher.matches()) {
-            return Types.ListType.ofRequired(Math.abs(new Random().nextInt()), getType(matcher.group(1)));
+            return ListType.ofRequired(Math.abs(new Random().nextInt()), getType(matcher.group(1)));
         }
 
         matcher = mapTypeRegex.matcher(typeName);
         if (matcher.matches()) {
-            return Types.MapType.ofRequired(Math.abs(new Random().nextInt()), Math.abs(new Random().nextInt()), getType(matcher.group(1)), getType(matcher.group(2)));
+            return MapType.ofRequired(Math.abs(new Random().nextInt()), Math.abs(new Random().nextInt()), getType(matcher.group(1)), getType(matcher.group(2)));
         }
 
         return null;
