@@ -25,7 +25,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-import org.apache.hadoop.util.hash.Hash;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,6 +55,17 @@ public class DestinationConfig {
 
     /**
      * Creates a new <code>DestinationConfig</code> instance from a map with configuration parameters.
+     * The map is required to have:
+     * <li><code>namespace</code></li>
+     * <li><code>table.name</code></li>
+     * <li><code>catalog.name</code></li>
+     *
+     * The catalog properties need to prefixed with <code>catalog.catalog_name</code>.
+     * If, for example, the catalog's name is <code>ProdCatalog</code>, and it has a
+     * parameter <code>uri=https://example.com</code>, then the following should be added to the map:
+     * <code>catalog.ProdCatalog.uri=https://example.com</code>
+     *
+     * @throws IllegalArgumentException if required keys are missing or if there are unknown parameters.
      */
     public static DestinationConfig fromMap(Map<String, String> cfgMap) {
         checkRequired(cfgMap);
