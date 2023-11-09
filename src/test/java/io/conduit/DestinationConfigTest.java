@@ -5,6 +5,9 @@ import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 class DestinationConfigTest {
     @Test
     void testParse() {
@@ -18,7 +21,7 @@ class DestinationConfigTest {
             "catalog.test_catalog.s3.endpoint", "http://localhost:9000"
         );
 
-        Assertions.assertEquals(
+        assertEquals(
             new DestinationConfig(
                 "test_namespace",
                 "test_table",
@@ -33,5 +36,21 @@ class DestinationConfigTest {
         );
     }
 
+    @Test
+    void testMissingCatalogName() {
+        var input = Map.of(
+            "namespace", "test_namespace",
+            "table.name", "test_table",
 
+            "catalog.test_catalog.catalog-impl", "org.apache.iceberg.rest.RESTCatalog",
+            "catalog.test_catalog.uri", "http://localhost:8181",
+            "catalog.test_catalog.s3.endpoint", "http://localhost:9000"
+        );
+
+        IllegalArgumentException e = assertThrows(
+            IllegalArgumentException.class,
+            () -> DestinationConfig.fromMap(input)
+        );
+        assertEquals("missing keys: [catalog.name]", e.getMessage());
+    }
 }
