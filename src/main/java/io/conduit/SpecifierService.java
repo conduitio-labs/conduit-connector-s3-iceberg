@@ -82,6 +82,7 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
                 .build()
         );
 
+        // todo make Catalog URI required
         return params;
     }
 }
