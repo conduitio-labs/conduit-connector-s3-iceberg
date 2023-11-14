@@ -16,17 +16,11 @@
 
 package io.conduit;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.util.Collection;
 import java.util.Map;
 
 @SuppressWarnings("checkstyle:MissingJavadocType")
 public final class Utils {
-    public static final ObjectMapper mapper = new ObjectMapper()
-            .configure(DeserializationFeature.USE_LONG_FOR_INTS, true);
-
     private Utils() {
     }
 

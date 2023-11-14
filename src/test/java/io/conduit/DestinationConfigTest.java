@@ -18,18 +18,22 @@ class DestinationConfigTest {
 
             "catalog.test_catalog.catalog-impl", "org.apache.iceberg.rest.RESTCatalog",
             "catalog.test_catalog.uri", "http://localhost:8181",
-            "catalog.test_catalog.s3.endpoint", "http://localhost:9000"
+            "s3.endpoint", "http://localhost:9000",
+            "s3.access-key-id", "test-access-key-id",
+            "s3.secret-access-key", "test-secret-access-key"
         );
 
         assertEquals(
             new DestinationConfig(
+                "test_catalog",
                 "test_namespace",
                 "test_table",
-                "test_catalog",
+                "http://localhost:9000",
+                "test-access-key-id",
+                "test-secret-access-key",
                 Map.of(
-                    "catalog-impl", "org.apache.iceberg.rest.RESTCatalog",
-                    "uri", "http://localhost:8181",
-                    "s3.endpoint", "http://localhost:9000"
+                    "catalog.test_catalog.catalog-impl", "org.apache.iceberg.rest.RESTCatalog",
+                    "catalog.test_catalog.uri", "http://localhost:8181"
                 )
             ),
             DestinationConfig.fromMap(input)
@@ -44,7 +48,9 @@ class DestinationConfigTest {
 
             "catalog.test_catalog.catalog-impl", "org.apache.iceberg.rest.RESTCatalog",
             "catalog.test_catalog.uri", "http://localhost:8181",
-            "catalog.test_catalog.s3.endpoint", "http://localhost:9000"
+            "s3.endpoint", "http://localhost:9000",
+            "s3.access-key-id", "test-access-key-id",
+            "s3.secret-access-key", "test-secret-access-key"
         );
 
         IllegalArgumentException e = assertThrows(

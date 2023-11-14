@@ -55,7 +55,7 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
     private Map<String, Specifier.Parameter> buildDestinationParams() {
         Map<String, Parameter> params = new HashMap<>();
         params.put(
-            DestinationConfig.KEY_CATALOG_NAME,
+            "catalog.name",
             Specifier.Parameter.newBuilder()
                 .setDescription("Catalog name")
                 .setDefault("")
@@ -64,7 +64,7 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
                 .build()
         );
         params.put(
-            DestinationConfig.KEY_NAMESPACE,
+            "namespace",
             Specifier.Parameter.newBuilder()
                 .setDescription("Namespace")
                 .setDefault("")
@@ -73,7 +73,7 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
                 .build()
         );
         params.put(
-            DestinationConfig.KEY_TABLE_NAME,
+            "table.name",
             Specifier.Parameter.newBuilder()
                 .setDescription("Table name")
                 .setDefault("")

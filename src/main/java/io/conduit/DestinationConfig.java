@@ -20,11 +20,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonAnyGetter;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,25 +35,37 @@ import static java.util.function.Predicate.not;
 /**
  * Contains the configuration for a Conduit destination connector.
  */
-@Getter
-@Setter
+@NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode
-@ToString
+@Data
 public class DestinationConfig {
     public static final Logger logger = LoggerFactory.getLogger(DestinationConfig.class);
-
-    public static final String KEY_NAMESPACE = "namespace";
-    public static final String KEY_TABLE_NAME = "table.name";
-    public static final String KEY_CATALOG_NAME = "catalog.name";
-    private static final List<String> REQUIRED_KEYS = List.of(KEY_NAMESPACE, KEY_TABLE_NAME, KEY_CATALOG_NAME);
-
+    private static final ObjectMapper mapper = new ObjectMapper();
     private static final String CATALOG_PREFIX = "catalog.";
+    private static final List<String> REQUIRED_KEYS = List.of(
+        "catalog.name", "namespace", "table.name",
+        "s3.endpoint", "s3.access-key-id", "s3.secret-access-key"
+    );
 
-    private final String namespace;
-    private final String tableName;
-    private final String catalogName;
-    private final Map<String, String> catalogProperties;
+    @JsonProperty(value = "catalog.name")
+    private String catalogName;
+
+    @JsonProperty(value = "namespace")
+    private String namespace;
+
+    @JsonProperty(value = "table.name")
+    private String tableName;
+
+    @JsonProperty(value = "s3.endpoint")
+    private String s3Endpoint;
+
+    @JsonProperty(value = "s3.access-key-id")
+    private String s3AccessKeyId;
+
+    @JsonProperty(value = "s3.secret-access-key")
+    private String s3SecretAccessKey;
+
+    private Map<String, String> catalogProperties = new HashMap<>();
 
     /**
      * Creates a new <code>DestinationConfig</code> instance from a map with configuration parameters.
@@ -59,7 +73,7 @@ public class DestinationConfig {
      * <li><code>namespace</code></li>
      * <li><code>table.name</code></li>
      * <li><code>catalog.name</code></li>
-     *
+     * <p>
      * The catalog properties need to prefixed with <code>catalog.catalog_name</code>.
      * If, for example, the catalog's name is <code>ProdCatalog</code>, and it has a
      * parameter <code>uri=https://example.com</code>, then the following should be added to the map:
@@ -70,37 +84,16 @@ public class DestinationConfig {
     public static DestinationConfig fromMap(Map<String, String> cfgMap) {
         checkRequired(cfgMap);
 
-        String namespace = cfgMap.get(KEY_NAMESPACE);
-        String tableName = cfgMap.get(KEY_TABLE_NAME);
-        String catalogName = cfgMap.get(KEY_CATALOG_NAME);
+        DestinationConfig cfg = mapper.convertValue(cfgMap, DestinationConfig.class);
 
-        // Catalog properties, prefixed with catalog.catalog_name
-        var catalogPropsPrefixed = new HashMap<>(cfgMap);
-        catalogPropsPrefixed.remove(KEY_CATALOG_NAME);
-        catalogPropsPrefixed.remove(KEY_NAMESPACE);
-        catalogPropsPrefixed.remove(KEY_TABLE_NAME);
-
-        var unknownProps = catalogPropsPrefixed.keySet().stream()
-            .filter(not(k -> k.startsWith(CATALOG_PREFIX + catalogName + ".")))
+        var unknownProps = cfg.getCatalogProperties().keySet().stream()
+            .filter(not(k -> k.startsWith(CATALOG_PREFIX + cfg.getCatalogName() + ".")))
             .toList();
         if (!Utils.isEmpty(unknownProps)) {
             throw new IllegalArgumentException("unknown properties: " + unknownProps);
         }
 
-        Map<String, String> catalogProperties = new HashMap<>();
-        for (Map.Entry<String, String> entry : catalogPropsPrefixed.entrySet()) {
-            catalogProperties.put(
-                entry.getKey().replaceFirst(CATALOG_PREFIX + catalogName + ".", ""),
-                entry.getValue()
-            );
-        }
-
-        return new DestinationConfig(
-            namespace,
-            tableName,
-            catalogName,
-            catalogProperties
-        );
+        return cfg;
     }
 
     private static void checkRequired(Map<String, String> cfgMap) {
@@ -111,11 +104,16 @@ public class DestinationConfig {
         if (!Utils.isEmpty(missing)) {
             throw new IllegalArgumentException("missing keys: " + missing);
         }
-
-        String catalogImplKey = CATALOG_PREFIX + cfgMap.get(KEY_CATALOG_NAME) + ".catalog-impl";
-        if (!cfgMap.containsKey(catalogImplKey)) {
-            throw new IllegalArgumentException("missing " + catalogImplKey);
-        }
     }
 
+    // Capture all other fields that Jackson do not match other members
+    @JsonAnyGetter
+    public Map<String, String> otherFields() {
+        return catalogProperties;
+    }
+
+    @JsonAnySetter
+    public void setOtherField(String name, String value) {
+        catalogProperties.put(name, value);
+    }
 }
