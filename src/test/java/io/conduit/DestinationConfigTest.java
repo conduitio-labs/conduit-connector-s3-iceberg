@@ -16,8 +16,8 @@ class DestinationConfigTest {
             "namespace", "test_namespace",
             "table.name", "test_table",
 
-            "catalog.test_catalog.catalog-impl", "org.apache.iceberg.rest.RESTCatalog",
-            "catalog.test_catalog.uri", "http://localhost:8181",
+            "catalog.catalog-impl", "org.apache.iceberg.rest.RESTCatalog",
+            "catalog.uri", "http://localhost:8181",
             "s3.endpoint", "http://localhost:9000",
             "s3.access-key-id", "test-access-key-id",
             "s3.secret-access-key", "test-secret-access-key"
