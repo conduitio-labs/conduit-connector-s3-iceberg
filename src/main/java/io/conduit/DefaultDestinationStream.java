@@ -17,16 +17,13 @@
 package io.conduit;
 
 import java.util.List;
-import java.util.Map;
 
 import com.google.protobuf.ByteString;
 import io.conduit.grpc.Destination;
-import io.conduit.grpc.Operation;
 import io.conduit.grpc.Record;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import lombok.AllArgsConstructor;
-import lombok.SneakyThrows;
 import org.apache.iceberg.spark.SparkWriteOptions;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
@@ -71,8 +68,7 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
         logger.info("DO WRITE..");
         logger.info(rec.toString());
         switch (rec.getOperation()) {
-            case OPERATION_CREATE:
-            case OPERATION_SNAPSHOT:
+            case OPERATION_CREATE, OPERATION_SNAPSHOT:
                 insertRecord(rec);
                 break;
             case OPERATION_UPDATE:
@@ -88,19 +84,19 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
         var schema = spark.read().table(tableName).schema();
 
         Dataset<Row> data = spark.read()
-                .schema(schema)
-                .json(spark.createDataset(List.of(rec.getPayload().getAfter().toByteString().toStringUtf8()), Encoders.STRING()));
-        System.out.println("payload string: "+rec.getPayload().getAfter().toByteString().toStringUtf8());
+            .schema(schema)
+            .json(spark.createDataset(List.of(rec.getPayload().getAfter().toByteString().toStringUtf8()), Encoders.STRING()));
+        logger.info("payload string: {}", rec.getPayload().getAfter().toByteString().toStringUtf8());
 
         data.write()
-                .format("iceberg")
-                .mode("append")
-                .option(SparkWriteOptions.CHECK_NULLABILITY, false)
-                .option(SparkWriteOptions.CHECK_ORDERING, false)
-                .saveAsTable(tableName);
-        System.out.println("done writing");
+            .format("iceberg")
+            .mode("append")
+            .option(SparkWriteOptions.CHECK_NULLABILITY, false)
+            .option(SparkWriteOptions.CHECK_ORDERING, false)
+            .saveAsTable(tableName);
+        logger.info("done writing");
 
-        String selectQ = "SELECT * FROM "+ tableName;
+        String selectQ = "SELECT * FROM " + tableName;
         spark.sql(selectQ).show();
     }
 
