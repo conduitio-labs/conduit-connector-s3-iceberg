@@ -16,11 +16,17 @@
 
 package io.conduit;
 
+import java.util.List;
+
 import com.google.protobuf.ByteString;
 import io.conduit.grpc.Destination;
 import io.conduit.grpc.Record;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.apache.iceberg.spark.SparkWriteOptions;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Encoders;
+import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,9 +37,11 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
 
     private final StreamObserver<Destination.Run.Response> responseObserver;
     private final SparkSession spark;
+    private final String tableName;
 
     public DefaultDestinationStream(StreamObserver<Destination.Run.Response> responseObserver, DestinationConfig cfg) {
         this.responseObserver = responseObserver;
+        this.tableName = cfg.getTableName();
         this.spark = buildSparkSession(cfg);
     }
 
@@ -53,7 +61,7 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
             .config("spark.sql.defaultCatalog", cfg.getCatalogName());
 
         cfg.getCatalogProperties()
-            .forEach((name, value) -> builder.config(prefix  + "." + name, value));
+            .forEach((name, value) -> builder.config(prefix + "." + name, value));
 
         var session = builder.getOrCreate();
         session.sparkContext().setLogLevel("ERROR");
@@ -88,7 +96,20 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
     private void doWrite(Record rec) {
         logger.info("DO WRITE..");
         logger.info(rec.toString());
-        // todo write into S3
+        String jsonString = rec.getPayload().getAfter().toByteString().toStringUtf8();
+        // needed to properly convert types, e.g. long to int (as in integer_field)
+        var schema = spark.read().table(tableName).schema();
+
+        Dataset<Row> data = spark.read()
+            .schema(schema)
+            .json(spark.createDataset(List.of(jsonString), Encoders.STRING()));
+
+        data.write()
+            .format("iceberg")
+            .mode("append")
+            .option(SparkWriteOptions.CHECK_NULLABILITY, false)
+            .option(SparkWriteOptions.CHECK_ORDERING, false)
+            .saveAsTable("demo.webapp.logs");
     }
 
     @Override
