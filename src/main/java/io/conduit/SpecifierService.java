@@ -26,14 +26,11 @@ import io.conduit.grpc.Specifier.Specify.Request;
 import io.conduit.grpc.Specifier.Specify.Response;
 import io.conduit.grpc.SpecifierPluginGrpc;
 import io.grpc.stub.StreamObserver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A gRPC service exposing this connector's specification.
  */
 public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBase {
-    public static final Logger logger = LoggerFactory.getLogger(SpecifierService.class);
     private static final Validation requiredValidation = Validation.newBuilder()
         .setType(Validation.Type.TYPE_REQUIRED)
         .build();
@@ -58,7 +55,6 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
             "catalog.name",
             Specifier.Parameter.newBuilder()
                 .setDescription("Catalog name")
-                .setDefault("")
                 .setType(Specifier.Parameter.Type.TYPE_STRING)
                 .addValidations(requiredValidation)
                 .build()
@@ -67,7 +63,6 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
             "namespace",
             Specifier.Parameter.newBuilder()
                 .setDescription("Namespace")
-                .setDefault("")
                 .setType(Specifier.Parameter.Type.TYPE_STRING)
                 .addValidations(requiredValidation)
                 .build()
@@ -76,13 +71,43 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
             "table.name",
             Specifier.Parameter.newBuilder()
                 .setDescription("Table name")
-                .setDefault("")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            "s3.endpoint",
+            Specifier.Parameter.newBuilder()
+                .setDescription("S3 endpoint")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            "s3.access-key-id",
+            Specifier.Parameter.newBuilder()
+                .setDescription("S3 Access Key ID")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            "s3.access-key-id",
+            Specifier.Parameter.newBuilder()
+                .setDescription("S3 Access Key ID")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            "s3.secret-access-key",
+            Specifier.Parameter.newBuilder()
+                .setDescription("S3 Secret Access Key")
                 .setType(Specifier.Parameter.Type.TYPE_STRING)
                 .addValidations(requiredValidation)
                 .build()
         );
 
-        // todo make Catalog URI required
         return params;
     }
 }
