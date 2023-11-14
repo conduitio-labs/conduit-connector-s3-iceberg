@@ -32,16 +32,14 @@ import org.slf4j.LoggerFactory;
 public class DestinationService extends DestinationPluginGrpc.DestinationPluginImplBase {
     public static final Logger logger = LoggerFactory.getLogger(DestinationService.class);
 
-    private boolean started;
     private DefaultDestinationStream runStream;
+    private DestinationConfig cfg;
 
     @Override
     public void configure(Destination.Configure.Request request, StreamObserver<Destination.Configure.Response> responseObserver) {
         logger.info("Configuring the destination.");
         try {
-            // the returned config map is unmodifiable, so we make a copy
-            // since we need to remove some keys
-            DestinationConfig.fromMap(request.getConfigMap());
+            this.cfg = DestinationConfig.fromMap(request.getConfigMap());
             logger.info("Done configuring the destination.");
 
             responseObserver.onNext(Destination.Configure.Response.newBuilder().build());
@@ -63,7 +61,6 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
         logger.info("Starting the destination.");
 
         try {
-            started = true;
             logger.info("Destination started.");
 
             responseObserver.onNext(Destination.Start.Response.newBuilder().build());
@@ -78,7 +75,7 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
 
     @Override
     public StreamObserver<Destination.Run.Request> run(StreamObserver<Destination.Run.Response> responseObserver) {
-        this.runStream = new DefaultDestinationStream(responseObserver);
+        this.runStream = new DefaultDestinationStream(responseObserver, cfg);
         return runStream;
     }
 

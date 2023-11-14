@@ -16,15 +16,12 @@
 
 package io.conduit;
 
-import java.util.List;
-import java.util.Map;
-
 import com.google.protobuf.ByteString;
 import io.conduit.grpc.Destination;
 import io.conduit.grpc.Record;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import lombok.SneakyThrows;
+import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,9 +30,35 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
     public static final Logger logger = LoggerFactory.getLogger(DefaultDestinationStream.class);
 
     private final StreamObserver<Destination.Run.Response> responseObserver;
+    private final SparkSession spark;
 
-    public DefaultDestinationStream(StreamObserver<Destination.Run.Response> responseObserver) {
+    public DefaultDestinationStream(StreamObserver<Destination.Run.Response> responseObserver, DestinationConfig cfg) {
         this.responseObserver = responseObserver;
+        this.spark = buildSparkSession(cfg);
+    }
+
+    private SparkSession buildSparkSession(DestinationConfig cfg) {
+        String prefix = "spark.sql.catalog." + cfg.getCatalogName();
+        var builder = SparkSession
+            .builder()
+            .master("local[*]")
+            .appName("Java API Demo")
+            .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+            .config(prefix, "org.apache.iceberg.spark.SparkCatalog")
+            .config(prefix + ".catalog-impl", "org.apache.iceberg.rest.RESTCatalog")
+            .config(prefix + ".io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
+            .config(prefix + ".s3.endpoint", cfg.getS3Endpoint())
+            .config(prefix + ".s3.access-key-id", cfg.getS3AccessKeyId())
+            .config(prefix + ".s3.secret-access-key", cfg.getS3SecretAccessKey())
+            .config("spark.sql.defaultCatalog", cfg.getCatalogName());
+
+        cfg.getCatalogProperties()
+            .forEach((name, value) -> builder.config(prefix  + "." + name, value));
+
+        var session = builder.getOrCreate();
+        session.sparkContext().setLogLevel("ERROR");
+
+        return session;
     }
 
     @Override
