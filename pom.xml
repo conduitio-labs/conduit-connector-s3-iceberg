@@ -227,6 +227,11 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.1.2</version>
+                <configuration>
+                    <argLine>
+                        --add-exports java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED
+                    </argLine>
+                </configuration>
             </plugin>
 
             <plugin>
@@ -243,6 +248,9 @@
                 </executions>
                 <configuration>
                     <includes>**/*IT.java</includes>
+                    <argLine>
+                        --add-exports java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED
+                    </argLine>
                 </configuration>
             </plugin>
 
