@@ -9,6 +9,6 @@ which makes it possible to write data into S3 in the [Apache Iceberg](https://ic
 
 ## Usage
 First, the connector needs to be built, which can be done with `scripts/dist.sh`. A new directory, `dist`,
-will be created. The contents of `dist` need to copied into the Conduit connectors' directory (which, 
+will be created. The contents of `dist` need to be copied into the Conduit connectors' directory (which, 
 by default, is `connectors`). Read more about installing Conduit connectors 
 [here](https://conduit.io/docs/connectors/installing).
