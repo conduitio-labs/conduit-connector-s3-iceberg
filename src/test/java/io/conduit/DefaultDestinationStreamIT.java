@@ -52,8 +52,9 @@ class DefaultDestinationStreamIT {
         Types.NestedField.optional(3, "list_field", Types.ListType.ofRequired(100, Types.StringType.get())),
         Types.NestedField.optional(4, "integer_field", Types.IntegerType.get()),
         Types.NestedField.optional(5, "float_field", Types.FloatType.get()),
-        Types.NestedField.optional(6, "map_field", Types.MapType.ofOptional(200, 300, Types.StringType.get(), Types.StringType.get()))
-    );
+        Types.NestedField.optional(6, "map_field", Types.MapType.ofOptional(200, 300, Types.StringType.get(), Types.StringType.get())),
+        Types.NestedField.optional(7, "float_int_field", Types.FloatType.get())
+        );
 
     Namespace namespace = Namespace.of("webapp");
     TableIdentifier tableId = TableIdentifier.of(namespace, "DefaultDestinationStreamIT");
@@ -190,6 +191,7 @@ class DefaultDestinationStreamIT {
         assertEquals(eventTime, record.getField("timestamp_tz_field"));
         assertEquals(123, record.getField("integer_field"));
         assertEquals(456.78f, record.getField("float_field"));
+        assertEquals(99f, record.getField("float_int_field"));
         assertEquals(List.of("item_1", "item_2"), record.getField("list_field"));
         assertEquals(Map.of("foo", "bar"), record.getField("map_field"));
     }
@@ -224,6 +226,7 @@ class DefaultDestinationStreamIT {
                 "timestamp_tz_field":  "%s",
                 "integer_field": 123,
                 "float_field": 456.78,
+                "float_int_field": 99,
                 "list_field": ["item_1", "item_2"],
                 "map_field": {"foo": "bar"}
                 }

@@ -97,6 +97,7 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
         logger.trace("payload string: {}", afterString);
 
         Dataset<Row> data = spark.read()
+            .option("mode", "FAILFAST")
             .schema(schema)
             .json(spark.createDataset(List.of(afterString), Encoders.STRING()));
 
