@@ -18,6 +18,7 @@ package io.conduit;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -53,19 +54,19 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
         } catch (Exception e) {
             logger.error("Couldn't write record.", e);
             responseObserver.onError(
-                Status.INTERNAL
-                    .withDescription("couldn't write record: " + e.getMessage())
-                    .withCause(e)
-                    .asException()
+                    Status.INTERNAL
+                            .withDescription("couldn't write record: " + e.getMessage())
+                            .withCause(e)
+                            .asException()
             );
         }
     }
 
     private Destination.Run.Response responseWith(ByteString position) {
         return Destination.Run.Response
-            .newBuilder()
-            .setAckPosition(position)
-            .build();
+                .newBuilder()
+                .setAckPosition(position)
+                .build();
     }
 
     private void doWrite(Record rec) {
@@ -76,6 +77,7 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
             case OPERATION_UPDATE:
                 break;
             case OPERATION_DELETE:
+                deleteRecord(rec);
                 break;
             default:
                 break;
@@ -94,17 +96,41 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
         logger.info("payload string: {}", afterString);
 
         Dataset<Row> data = spark.read()
-            .schema(schema)
-            .json(spark.createDataset(List.of(afterString), Encoders.STRING()));
+                .schema(schema)
+                .json(spark.createDataset(List.of(afterString), Encoders.STRING()));
 
         data.write()
-            .format("iceberg")
-            .mode("append")
-            .option(SparkWriteOptions.CHECK_NULLABILITY, false)
-            .option(SparkWriteOptions.CHECK_ORDERING, false)
-            .saveAsTable(tableName);
+                .format("iceberg")
+                .mode("append")
+                .option(SparkWriteOptions.CHECK_NULLABILITY, false)
+                .option(SparkWriteOptions.CHECK_ORDERING, false)
+                .saveAsTable(tableName);
         logger.info("done writing");
 
+        // todo: remove
+        showTable();
+    }
+
+    @SneakyThrows
+    private void deleteRecord(Record rec) {
+        String deleteQ = "DELETE FROM " + tableName + " WHERE ";
+        // todo: check if key is not structured
+        var mp = rec.getKey().getStructuredData().getFieldsMap();
+
+        String condition = mp.entrySet()
+                .stream()
+                .map(entry -> entry.getKey() + "=" + entry.getValue().getStringValue())
+                .collect(Collectors.joining(" AND "));
+        deleteQ += condition;
+        System.out.println(deleteQ);
+
+        spark.sql(deleteQ).show();
+
+        // todo: remove
+        showTable();
+    }
+
+    private void showTable() {
         String selectQ = "SELECT * FROM " + tableName;
         spark.sql(selectQ).show();
     }
@@ -114,7 +140,7 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
     public void onError(Throwable t) {
         logger.error("Experienced an error.", t);
         responseObserver.onError(
-            Status.INTERNAL.withDescription("Error: " + t.getMessage()).withCause(t).asException()
+                Status.INTERNAL.withDescription("Error: " + t.getMessage()).withCause(t).asException()
         );
     }
 
