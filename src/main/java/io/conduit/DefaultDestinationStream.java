@@ -19,9 +19,8 @@ package io.conduit;
 import java.util.List;
 import java.util.Objects;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.util.JsonFormat;
 import io.conduit.grpc.Destination;
 import io.conduit.grpc.Record;
 import io.grpc.Status;
@@ -89,9 +88,13 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
         logger.trace("inserting record with key: {}", rec.getKey());
         var schema = spark.read().table(tableName).schema();
 
-        // todo handle structured data as well
-        String afterString = rec.getPayload().getAfter().getRawData().toStringUtf8();
-        logger.info("payload string: {}", afterString);
+        String afterString;
+        if (rec.getPayload().getAfter().hasRawData()) {
+            afterString = rec.getPayload().getAfter().getRawData().toStringUtf8();
+        } else {
+            afterString = JsonFormat.printer().print(rec.getPayload().getAfter().getStructuredData());
+        }
+        logger.trace("payload string: {}", afterString);
 
         Dataset<Row> data = spark.read()
             .schema(schema)
@@ -103,10 +106,8 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
             .option(SparkWriteOptions.CHECK_NULLABILITY, false)
             .option(SparkWriteOptions.CHECK_ORDERING, false)
             .saveAsTable(tableName);
-        logger.info("done writing");
 
-        String selectQ = "SELECT * FROM " + tableName;
-        spark.sql(selectQ).show();
+        logger.trace("done writing");
     }
 
 
