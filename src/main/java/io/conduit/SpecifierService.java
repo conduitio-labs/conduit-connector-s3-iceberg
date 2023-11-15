@@ -17,51 +17,113 @@
 package io.conduit;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import io.conduit.grpc.Specifier;
 import io.conduit.grpc.Specifier.Parameter;
+import io.conduit.grpc.Specifier.Parameter.Validation;
 import io.conduit.grpc.Specifier.Specify.Request;
 import io.conduit.grpc.Specifier.Specify.Response;
-import io.conduit.grpc.Specifier.Parameter.Validation;
 import io.conduit.grpc.SpecifierPluginGrpc;
 import io.grpc.stub.StreamObserver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * A gRPC service exposing this connector's specification.
  */
+@Slf4j
 public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBase {
-    public static final Logger logger = LoggerFactory.getLogger(SpecifierService.class);
     private static final Validation requiredValidation = Validation.newBuilder()
         .setType(Validation.Type.TYPE_REQUIRED)
         .build();
+    private static final List<String> AVAILABLE_CATALOG_IMPL = List.of(
+        "org.apache.iceberg.hadoop.HadoopCatalog",
+        "org.apache.iceberg.jdbc.JdbcCatalog",
+        "org.apache.iceberg.rest.RESTCatalog"
+    );
 
     @Override
     public void specify(Request request, StreamObserver<Response> responseObserver) {
         responseObserver.onNext(
-                Response.newBuilder()
-                        .setName("s3-iceberg")
-                        .setSummary("An S3 destination plugin for Conduit, written in Java.")
-                        .setVersion("v0.1.0")
-                        .setAuthor("Meroxa, Inc.")
-                        .putAllDestinationParams(buildDestinationParams())
-                        .build()
+            Response.newBuilder()
+                .setName("s3-iceberg")
+                .setSummary("An S3 destination plugin for Conduit, written in Java.")
+                .setVersion("v0.1.0")
+                .setAuthor("Meroxa, Inc.")
+                .putAllDestinationParams(buildDestinationParams())
+                .build()
         );
         responseObserver.onCompleted();
     }
 
     private Map<String, Specifier.Parameter> buildDestinationParams() {
-        // todo add all params
         Map<String, Parameter> params = new HashMap<>();
-        params.put("aws.accessKeyId", Specifier.Parameter.newBuilder()
-                .setDescription(
-                "AWS access key id.")
-                .setDefault("")
+        params.put(
+            "catalog.name",
+            Specifier.Parameter.newBuilder()
+                .setDescription("Catalog name")
                 .setType(Specifier.Parameter.Type.TYPE_STRING)
-//                .addValidations(requiredValidation)
-                .build());
+                .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            "catalog.catalog-impl",
+            Specifier.Parameter.newBuilder()
+                .setDescription("Catalog implementation")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .addValidations(availableCatalogImpl())
+                .build()
+        );
+        params.put(
+            "namespace",
+            Specifier.Parameter.newBuilder()
+                .setDescription("Namespace")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            "table.name",
+            Specifier.Parameter.newBuilder()
+                .setDescription("Table name")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            "s3.endpoint",
+            Specifier.Parameter.newBuilder()
+                .setDescription("S3 endpoint")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            "s3.access-key-id",
+            Specifier.Parameter.newBuilder()
+                .setDescription("S3 Access Key ID")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            "s3.secret-access-key",
+            Specifier.Parameter.newBuilder()
+                .setDescription("S3 Secret Access Key")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .build()
+        );
+
         return params;
+    }
+
+    private Validation availableCatalogImpl() {
+        return Validation.newBuilder()
+            .setType(Validation.Type.TYPE_INCLUSION)
+            .setValue(String.join(",", AVAILABLE_CATALOG_IMPL))
+            .build();
     }
 }
