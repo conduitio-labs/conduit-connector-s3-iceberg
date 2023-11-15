@@ -1,7 +1,10 @@
 package io.conduit;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.UUID;
 
@@ -17,9 +20,12 @@ import lombok.SneakyThrows;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.data.IcebergGenerics;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.rest.RESTCatalog;
 import org.apache.iceberg.types.Types;
 import org.apache.spark.sql.SparkSession;
@@ -27,6 +33,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -47,15 +56,15 @@ class DefaultDestinationStreamIT {
     );
 
     Namespace namespace = Namespace.of("webapp");
-    TableIdentifier tableId = TableIdentifier.of(namespace, "logs");
+    TableIdentifier tableId = TableIdentifier.of(namespace, "DefaultDestinationStreamIT");
 
     @BeforeEach
     @SneakyThrows
     void setUp() {
         config = DestinationConfig.fromMap(Map.of(
             "catalog.name", "demo",
-            "namespace", "webapp",
-            "table.name", "logs",
+            "namespace", namespace.toString(),
+            "table.name", tableId.name(),
             "catalog.catalog-impl", "org.apache.iceberg.rest.RESTCatalog",
             "catalog.uri", "http://localhost:8181",
             "s3.endpoint", "http://localhost:9000",
@@ -86,9 +95,10 @@ class DefaultDestinationStreamIT {
             if (!catalog.namespaceExists(namespace)) {
                 catalog.createNamespace(namespace);
             }
-            if (!catalog.tableExists(tableId)) {
-                catalog.createTable(tableId, schema);
+            if (catalog.tableExists(tableId)) {
+                catalog.dropTable(tableId);
             }
+            catalog.createTable(tableId, schema);
         }
     }
 
@@ -122,6 +132,10 @@ class DefaultDestinationStreamIT {
     @Test
     @SneakyThrows
     void testInsert() {
+        OffsetDateTime eventTime = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
+        String eventTimeStr = eventTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        String eventID = UUID.randomUUID().toString();
+
         String jsonString = """
                 {
                 "level": "debug",
@@ -131,7 +145,7 @@ class DefaultDestinationStreamIT {
                 "integer_field": 123,
                 "map_field": {"foo": "bar"}
                 }
-            """.formatted(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME), UUID.randomUUID().toString());
+            """.formatted(eventTimeStr, eventID);
 
         var observerMock = mock(StreamObserver.class);
         DefaultDestinationStream underTest = new DefaultDestinationStream(
@@ -156,5 +170,29 @@ class DefaultDestinationStreamIT {
         var captor = ArgumentCaptor.forClass(Destination.Run.Response.class);
         verify(observerMock).onNext(captor.capture());
         verify(observerMock, never()).onError(any());
+
+        try (RESTCatalog catalog = new RESTCatalog()) {
+            Configuration conf = new Configuration();
+            catalog.setConf(conf);
+            catalog.initialize("demo", catalogProps);
+
+            Table table = catalog.loadTable(tableId);
+
+            IcebergGenerics.ScanBuilder scanBuilder = IcebergGenerics.read(table);
+            try (CloseableIterable<org.apache.iceberg.data.Record> iterable = scanBuilder.build()) {
+                var iterator = iterable.iterator();
+                assertTrue(iterator.hasNext());
+
+                var record = iterator.next();
+                assertEquals("debug", record.getField("level"));
+                assertEquals(eventTime, record.getField("event_time"));
+                assertEquals("a debug message", record.getField("message"));
+                assertEquals(eventID, record.getField("event_id"));
+                assertEquals(123, record.getField("integer_field"));
+                assertEquals(Map.of("foo", "bar"), record.getField("map_field"));
+
+                assertFalse(iterator.hasNext());
+            }
+        }
     }
 }
