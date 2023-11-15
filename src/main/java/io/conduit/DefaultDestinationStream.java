@@ -17,6 +17,7 @@
 package io.conduit;
 
 import java.util.List;
+import java.util.Objects;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -68,8 +69,6 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
     }
 
     private void doWrite(Record rec) {
-        logger.info("DO WRITE..");
-        logger.info(rec.toString());
         switch (rec.getOperation()) {
             case OPERATION_CREATE, OPERATION_SNAPSHOT:
                 insertRecord(rec);
@@ -85,14 +84,14 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
 
     @SneakyThrows
     private void insertRecord(Record rec) {
+        Objects.requireNonNull(rec, "record is null");
+
+        logger.trace("inserting record with key: {}", rec.getKey());
         var schema = spark.read().table(tableName).schema();
 
+        // todo handle structured data as well
         String afterString = rec.getPayload().getAfter().getRawData().toStringUtf8();
         logger.info("payload string: {}", afterString);
-
-        JsonNode afterJson = new ObjectMapper().readTree(afterString);
-        logger.info("afterJson full: {}", afterJson);
-        logger.info("afterJson level: {}", afterJson.get("level").asText());
 
         Dataset<Row> data = spark.read()
             .schema(schema)
