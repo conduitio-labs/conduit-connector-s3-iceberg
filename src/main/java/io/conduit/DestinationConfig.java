@@ -43,7 +43,8 @@ public class DestinationConfig {
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final String CATALOG_PREFIX = "catalog.";
     private static final List<String> REQUIRED_KEYS = List.of(
-        "catalog.name", "namespace", "table.name",
+        "catalog.name", "catalog.catalog-impl",
+        "namespace", "table.name",
         "s3.endpoint", "s3.access-key-id", "s3.secret-access-key"
     );
 
@@ -73,11 +74,15 @@ public class DestinationConfig {
      * <li><code>namespace</code></li>
      * <li><code>table.name</code></li>
      * <li><code>catalog.name</code></li>
+     * <li><code>s3.endpoint</code></li>
+     * <li><code>s3.endpoint</code></li>
+     * <li><code>s3.access-key-id</code></li>
+     * <li><code>s3.secret-access-key</code></li>
      * <p>
-     * The catalog properties need to prefixed with <code>catalog.catalog_name</code>.
-     * If, for example, the catalog's name is <code>ProdCatalog</code>, and it has a
-     * parameter <code>uri=https://example.com</code>, then the following should be added to the map:
-     * <code>catalog.ProdCatalog.uri=https://example.com</code>
+     * The catalog properties need to prefixed with <code>catalog.</code>.
+     * If, for example, the catalog has a parameter <code>uri=https://example.com</code>,
+     * then the following should be added to the map:
+     * <code>catalog.uri=https://example.com</code>
      *
      * @throws IllegalArgumentException if required keys are missing or if there are unknown parameters.
      */
@@ -87,7 +92,7 @@ public class DestinationConfig {
         DestinationConfig cfg = mapper.convertValue(cfgMap, DestinationConfig.class);
 
         var unknownProps = cfg.getCatalogProperties().keySet().stream()
-            .filter(not(k -> k.startsWith(CATALOG_PREFIX + cfg.getCatalogName() + ".")))
+            .filter(not(k -> k.startsWith(CATALOG_PREFIX)))
             .toList();
         if (!Utils.isEmpty(unknownProps)) {
             throw new IllegalArgumentException("unknown properties: " + unknownProps);
@@ -106,7 +111,6 @@ public class DestinationConfig {
         }
     }
 
-    // Capture all other fields that Jackson do not match other members
     @JsonAnyGetter
     public Map<String, String> otherFields() {
         return catalogProperties;
