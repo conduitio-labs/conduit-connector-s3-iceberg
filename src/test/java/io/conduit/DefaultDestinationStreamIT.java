@@ -95,19 +95,26 @@ class DefaultDestinationStreamIT {
     private SparkSession initSpark() {
         String catalogName = config.getCatalogName();
 
+        String prefix = "spark.sql.catalog." + catalogName;
         var builder = SparkSession
             .builder()
             .master("local[*]")
-            .appName("DefaultDestinationStreamIT")
+            .appName("Java API Demo")
             .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-            .config("spark.sql.catalog." + catalogName, "org.apache.iceberg.spark.SparkCatalog")
-            .config("spark.sql.catalog." + catalogName + ".io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
-            .config("spark.sql.catalog." + catalogName + ".s3.endpoint", config.getS3Endpoint())
-            .config("spark.sql.catalog." + catalogName + ".s3.access-key-id", config.getS3AccessKeyId())
-            .config("spark.sql.catalog." + catalogName + ".s3.secret-access-key", config.getS3SecretAccessKey())
-            .config("spark.sql.defaultCatalog", catalogName);
+            .config(prefix, "org.apache.iceberg.spark.SparkCatalog")
+            .config(prefix + ".io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
+            .config(prefix + ".s3.endpoint", config.getS3Endpoint())
+            .config(prefix + ".s3.access-key-id", config.getS3AccessKeyId())
+            .config(prefix + ".s3.secret-access-key", config.getS3SecretAccessKey())
+            .config("spark.sql.defaultCatalog", catalogName)
+            .config("spark.eventLog.enabled", "true")
+            .config("spark.eventLog.dir", "/var/logs/spark-events")
+            .config("spark.history.fs.logDirectory", "/var/logs/spark-events");
 
-        config.getCatalogProperties().forEach((k, v) -> builder.config("spark.sql." + k, v));
+        config.getCatalogProperties().forEach((k, v) -> {
+            // keys are in the form of catalog.propertyName
+            builder.config(prefix + "." + k.replaceFirst("catalog.", ""), v);
+        });
 
         return builder.getOrCreate();
     }
