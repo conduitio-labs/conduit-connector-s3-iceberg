@@ -23,11 +23,12 @@ class DefaultDestinationStreamIT {
 
     @BeforeEach
     void setUp() {
-        config = DestinationConfig.fromMap(Map.of("namespace", "webapp",
+        config = DestinationConfig.fromMap(Map.of(
+            "namespace", "webapp",
             "table.name", "logs",
             "catalog.name", "demo",
-            "catalog.demo.catalog-impl", "org.apache.iceberg.rest.RESTCatalog",
-            "catalog.demo.uri", "http://localhost:8181",
+            "catalog.catalog-impl", "org.apache.iceberg.rest.RESTCatalog",
+            "catalog.uri", "http://localhost:8181",
             "s3.endpoint", "http://localhost:9000",
             "s3.access-key-id", "admin",
             "s3.secret-access-key", "password"

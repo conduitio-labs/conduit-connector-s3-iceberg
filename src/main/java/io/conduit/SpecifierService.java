@@ -17,6 +17,7 @@
 package io.conduit;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import io.conduit.grpc.Specifier;
@@ -26,17 +27,21 @@ import io.conduit.grpc.Specifier.Specify.Request;
 import io.conduit.grpc.Specifier.Specify.Response;
 import io.conduit.grpc.SpecifierPluginGrpc;
 import io.grpc.stub.StreamObserver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * A gRPC service exposing this connector's specification.
  */
+@Slf4j
 public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBase {
-    public static final Logger logger = LoggerFactory.getLogger(SpecifierService.class);
     private static final Validation requiredValidation = Validation.newBuilder()
         .setType(Validation.Type.TYPE_REQUIRED)
         .build();
+    private static final List<String> AVAILABLE_CATALOG_IMPL = List.of(
+        "org.apache.iceberg.hadoop.HadoopCatalog",
+        "org.apache.iceberg.jdbc.JdbcCatalog",
+        "org.apache.iceberg.rest.RESTCatalog"
+    );
 
     @Override
     public void specify(Request request, StreamObserver<Response> responseObserver) {
@@ -58,16 +63,23 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
             "catalog.name",
             Specifier.Parameter.newBuilder()
                 .setDescription("Catalog name")
-                .setDefault("")
                 .setType(Specifier.Parameter.Type.TYPE_STRING)
                 .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            "catalog.catalog-impl",
+            Specifier.Parameter.newBuilder()
+                .setDescription("Catalog implementation")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .addValidations(availableCatalogImpl())
                 .build()
         );
         params.put(
             "namespace",
             Specifier.Parameter.newBuilder()
                 .setDescription("Namespace")
-                .setDefault("")
                 .setType(Specifier.Parameter.Type.TYPE_STRING)
                 .addValidations(requiredValidation)
                 .build()
@@ -76,13 +88,42 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
             "table.name",
             Specifier.Parameter.newBuilder()
                 .setDescription("Table name")
-                .setDefault("")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            "s3.endpoint",
+            Specifier.Parameter.newBuilder()
+                .setDescription("S3 endpoint")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            "s3.access-key-id",
+            Specifier.Parameter.newBuilder()
+                .setDescription("S3 Access Key ID")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            "s3.secret-access-key",
+            Specifier.Parameter.newBuilder()
+                .setDescription("S3 Secret Access Key")
                 .setType(Specifier.Parameter.Type.TYPE_STRING)
                 .addValidations(requiredValidation)
                 .build()
         );
 
-        // todo make Catalog URI required
         return params;
+    }
+
+    private Validation availableCatalogImpl() {
+        return Validation.newBuilder()
+            .setType(Validation.Type.TYPE_INCLUSION)
+            .setValue(String.join(",", AVAILABLE_CATALOG_IMPL))
+            .build();
     }
 }

@@ -36,7 +36,6 @@ import org.slf4j.LoggerFactory;
 public class DestinationService extends DestinationPluginGrpc.DestinationPluginImplBase {
     public static final Logger logger = LoggerFactory.getLogger(DestinationService.class);
 
-    private boolean started;
     private DefaultDestinationStream runStream;
     Map<String, String> properties;
     RESTCatalog catalog;
@@ -76,7 +75,6 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
             logger.info("Setting up a spark session.");
             setupSpark();
 
-            started = true;
             logger.info("Destination started.");
 
             responseObserver.onNext(Destination.Start.Response.newBuilder().build());
