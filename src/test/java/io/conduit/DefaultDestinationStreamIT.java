@@ -114,10 +114,7 @@ class DefaultDestinationStreamIT {
             .config(prefix + ".s3.endpoint", config.getS3Endpoint())
             .config(prefix + ".s3.access-key-id", config.getS3AccessKeyId())
             .config(prefix + ".s3.secret-access-key", config.getS3SecretAccessKey())
-            .config("spark.sql.defaultCatalog", catalogName)
-            .config("spark.eventLog.enabled", "true")
-            .config("spark.eventLog.dir", "/var/logs/spark-events")
-            .config("spark.history.fs.logDirectory", "/var/logs/spark-events");
+            .config("spark.sql.defaultCatalog", catalogName);
 
         config.getCatalogProperties().forEach((k, v) -> {
             // keys are in the form of catalog.propertyName
