@@ -120,4 +120,8 @@ public class DestinationConfig {
     public void setOtherField(String name, String value) {
         catalogProperties.put(name, value);
     }
+
+    public String fullTableName() {
+        return getCatalogName() + "." + getNamespace() + "." + getTableName();
+    }
 }

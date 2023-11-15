@@ -125,7 +125,7 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
 
     @Override
     public StreamObserver<Destination.Run.Request> run(StreamObserver<Destination.Run.Response> responseObserver) {
-        this.runStream = new DefaultDestinationStream(responseObserver, spark, config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName());
+        this.runStream = new DefaultDestinationStream(responseObserver, spark, config.fullTableName());
         return runStream;
     }
 

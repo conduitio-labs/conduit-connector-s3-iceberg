@@ -2,16 +2,16 @@ package io.conduit;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import com.google.protobuf.ByteString;
 import io.conduit.grpc.Change;
 import io.conduit.grpc.Data;
-import io.conduit.grpc.Destination;
 import io.conduit.grpc.Destination.Run.Request;
 import io.conduit.grpc.Operation;
 import io.conduit.grpc.Record;
@@ -29,13 +29,11 @@ import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.rest.RESTCatalog;
 import org.apache.iceberg.types.Types;
 import org.apache.spark.sql.SparkSession;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -133,8 +131,53 @@ class DefaultDestinationStreamIT {
     @SneakyThrows
     void testInsert() {
         OffsetDateTime eventTime = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
-        String eventTimeStr = eventTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
         String eventID = UUID.randomUUID().toString();
+
+        var observerMock = mock(StreamObserver.class);
+        DefaultDestinationStream underTest = new DefaultDestinationStream(
+            observerMock,
+            spark,
+            config.fullTableName()
+        );
+
+        underTest.onNext(testRecord(eventTime, eventID));
+        verify(observerMock).onNext(any());
+        verify(observerMock, never()).onError(any());
+
+        var foundRecords = readIcebergRecords();
+        assertEquals(1, foundRecords.size());
+        var record = foundRecords.get(0);
+        assertEquals("debug", record.getField("level"));
+        assertEquals(eventTime, record.getField("event_time"));
+        assertEquals("a debug message", record.getField("message"));
+        assertEquals(eventID, record.getField("event_id"));
+        assertEquals(123, record.getField("integer_field"));
+        assertEquals(Map.of("foo", "bar"), record.getField("map_field"));
+    }
+
+    @SneakyThrows
+    private List<org.apache.iceberg.data.Record> readIcebergRecords() {
+        List<org.apache.iceberg.data.Record> records = new LinkedList<>();
+
+        try (RESTCatalog catalog = new RESTCatalog()) {
+            Configuration conf = new Configuration();
+            catalog.setConf(conf);
+            catalog.initialize("demo", catalogProps);
+
+            Table table = catalog.loadTable(tableId);
+
+            IcebergGenerics.ScanBuilder scanBuilder = IcebergGenerics.read(table);
+            try (CloseableIterable<org.apache.iceberg.data.Record> iterable = scanBuilder.build()) {
+                iterable.forEach(records::add);
+            }
+        }
+
+        return records;
+    }
+
+    @NotNull
+    private Request testRecord(OffsetDateTime eventTime, String eventID) {
+        String eventTimeStr = eventTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
         String jsonString = """
                 {
@@ -147,52 +190,17 @@ class DefaultDestinationStreamIT {
                 }
             """.formatted(eventTimeStr, eventID);
 
-        var observerMock = mock(StreamObserver.class);
-        DefaultDestinationStream underTest = new DefaultDestinationStream(
-            observerMock,
-            spark,
-            config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName()
-        );
-        underTest.onNext(
-            Request.newBuilder()
-                .setRecord(Record.newBuilder()
-                    .setPayload(
-                        Change.newBuilder()
-                            .setAfter(
-                                Data.newBuilder()
-                                    .setRawData(ByteString.copyFromUtf8(jsonString))
-                                    .build()
-                            ).build()
-                    ).setOperation(Operation.OPERATION_CREATE)
-                    .build()
-                ).build()
-        );
-        var captor = ArgumentCaptor.forClass(Destination.Run.Response.class);
-        verify(observerMock).onNext(captor.capture());
-        verify(observerMock, never()).onError(any());
-
-        try (RESTCatalog catalog = new RESTCatalog()) {
-            Configuration conf = new Configuration();
-            catalog.setConf(conf);
-            catalog.initialize("demo", catalogProps);
-
-            Table table = catalog.loadTable(tableId);
-
-            IcebergGenerics.ScanBuilder scanBuilder = IcebergGenerics.read(table);
-            try (CloseableIterable<org.apache.iceberg.data.Record> iterable = scanBuilder.build()) {
-                var iterator = iterable.iterator();
-                assertTrue(iterator.hasNext());
-
-                var record = iterator.next();
-                assertEquals("debug", record.getField("level"));
-                assertEquals(eventTime, record.getField("event_time"));
-                assertEquals("a debug message", record.getField("message"));
-                assertEquals(eventID, record.getField("event_id"));
-                assertEquals(123, record.getField("integer_field"));
-                assertEquals(Map.of("foo", "bar"), record.getField("map_field"));
-
-                assertFalse(iterator.hasNext());
-            }
-        }
+        return Request.newBuilder()
+            .setRecord(Record.newBuilder()
+                .setPayload(
+                    Change.newBuilder()
+                        .setAfter(
+                            Data.newBuilder()
+                                .setRawData(ByteString.copyFromUtf8(jsonString))
+                                .build()
+                        ).build()
+                ).setOperation(Operation.OPERATION_CREATE)
+                .build()
+            ).build();
     }
 }
