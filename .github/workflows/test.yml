@@ -30,3 +30,9 @@ jobs:
       - name: Test
         # -B (batch mode) to suppress progress (pollutes logs)
         run: mvn -B test
+
+      - name: Run Spark with Iceberg, MinIO
+        run: docker compose up -d --wait
+
+      - name: Run integration tests
+        run: mvn integration-test verify
