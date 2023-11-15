@@ -18,12 +18,15 @@ package io.conduit;
 
 import java.util.List;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import io.conduit.grpc.Destination;
 import io.conduit.grpc.Record;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import lombok.AllArgsConstructor;
+import lombok.SneakyThrows;
 import org.apache.iceberg.spark.SparkWriteOptions;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
@@ -80,13 +83,20 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
         }
     }
 
+    @SneakyThrows
     private void insertRecord(Record rec) {
         var schema = spark.read().table(tableName).schema();
 
+        String afterString = rec.getPayload().getAfter().getRawData().toStringUtf8();
+        logger.info("payload string: {}", afterString);
+
+        JsonNode afterJson = new ObjectMapper().readTree(afterString);
+        logger.info("afterJson full: {}", afterJson);
+        logger.info("afterJson level: {}", afterJson.get("level").asText());
+
         Dataset<Row> data = spark.read()
             .schema(schema)
-            .json(spark.createDataset(List.of(rec.getPayload().getAfter().toByteString().toStringUtf8()), Encoders.STRING()));
-        logger.info("payload string: {}", rec.getPayload().getAfter().toByteString().toStringUtf8());
+            .json(spark.createDataset(List.of(afterString), Encoders.STRING()));
 
         data.write()
             .format("iceberg")
