@@ -32,7 +32,6 @@ import org.slf4j.LoggerFactory;
 public class DestinationService extends DestinationPluginGrpc.DestinationPluginImplBase {
     public static final Logger logger = LoggerFactory.getLogger(DestinationService.class);
 
-    private boolean started;
     private DefaultDestinationStream runStream;
 
     @Override
@@ -63,7 +62,6 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
         logger.info("Starting the destination.");
 
         try {
-            started = true;
             logger.info("Destination started.");
 
             responseObserver.onNext(Destination.Start.Response.newBuilder().build());

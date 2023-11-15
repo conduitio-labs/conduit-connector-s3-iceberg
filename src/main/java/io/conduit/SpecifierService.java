@@ -17,6 +17,7 @@
 package io.conduit;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import io.conduit.grpc.Specifier;
@@ -26,14 +27,21 @@ import io.conduit.grpc.Specifier.Specify.Request;
 import io.conduit.grpc.Specifier.Specify.Response;
 import io.conduit.grpc.SpecifierPluginGrpc;
 import io.grpc.stub.StreamObserver;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * A gRPC service exposing this connector's specification.
  */
+@Slf4j
 public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBase {
     private static final Validation requiredValidation = Validation.newBuilder()
         .setType(Validation.Type.TYPE_REQUIRED)
         .build();
+    private static final List<String> AVAILABLE_CATALOG_IMPL = List.of(
+        "org.apache.iceberg.hadoop.HadoopCatalog",
+        "org.apache.iceberg.jdbc.JdbcCatalog",
+        "org.apache.iceberg.rest.RESTCatalog"
+    );
 
     @Override
     public void specify(Request request, StreamObserver<Response> responseObserver) {
@@ -57,6 +65,15 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
                 .setDescription("Catalog name")
                 .setType(Specifier.Parameter.Type.TYPE_STRING)
                 .addValidations(requiredValidation)
+                .build()
+        );
+        params.put(
+            "catalog.catalog-impl",
+            Specifier.Parameter.newBuilder()
+                .setDescription("Catalog implementation")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .addValidations(availableCatalogImpl())
                 .build()
         );
         params.put(
@@ -92,14 +109,6 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
                 .build()
         );
         params.put(
-            "s3.access-key-id",
-            Specifier.Parameter.newBuilder()
-                .setDescription("S3 Access Key ID")
-                .setType(Specifier.Parameter.Type.TYPE_STRING)
-                .addValidations(requiredValidation)
-                .build()
-        );
-        params.put(
             "s3.secret-access-key",
             Specifier.Parameter.newBuilder()
                 .setDescription("S3 Secret Access Key")
@@ -109,5 +118,12 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
         );
 
         return params;
+    }
+
+    private Validation availableCatalogImpl() {
+        return Validation.newBuilder()
+            .setType(Validation.Type.TYPE_INCLUSION)
+            .setValue(String.join(",", AVAILABLE_CATALOG_IMPL))
+            .build();
     }
 }
