@@ -16,16 +16,11 @@
 
 package io.conduit;
 
-import java.util.Map;
-
 import io.conduit.grpc.Destination;
 import io.conduit.grpc.Destination.Teardown;
 import io.conduit.grpc.DestinationPluginGrpc;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import org.apache.iceberg.catalog.Namespace;
-import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.rest.RESTCatalog;
 import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,10 +49,10 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
         } catch (Exception e) {
             logger.error("Error while configuring destination.", e);
             responseObserver.onError(
-                Status.INTERNAL
-                    .withDescription("couldn't configure task: " + e.getMessage())
-                    .withCause(e)
-                    .asException()
+                    Status.INTERNAL
+                            .withDescription("couldn't configure task: " + e.getMessage())
+                            .withCause(e)
+                            .asException()
             );
         }
     }
@@ -78,7 +73,7 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
         } catch (Exception e) {
             logger.error("Error while starting Connector.", e);
             responseObserver.onError(
-                Status.INTERNAL.withDescription("couldn't start connector: " + e.getMessage()).withCause(e).asException()
+                    Status.INTERNAL.withDescription("couldn't start connector: " + e.getMessage()).withCause(e).asException()
             );
         }
     }
@@ -88,19 +83,19 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
 
         String prefix = "spark.sql.catalog." + catalogName;
         var builder = SparkSession
-            .builder()
-            .master("local[*]")
-            .appName("Java API Demo")
-            .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-            .config(prefix, "org.apache.iceberg.spark.SparkCatalog")
-            .config(prefix + ".io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
-            .config(prefix + ".s3.endpoint", config.getS3Endpoint())
-            .config(prefix + ".s3.access-key-id", config.getS3AccessKeyId())
-            .config(prefix + ".s3.secret-access-key", config.getS3SecretAccessKey())
-            .config("spark.sql.defaultCatalog", catalogName)
-            .config("spark.eventLog.enabled", "true")
-            .config("spark.eventLog.dir", "/var/logs/spark-events")
-            .config("spark.history.fs.logDirectory", "/var/logs/spark-events");
+                .builder()
+                .master("local[*]")
+                .appName("Java API Demo")
+                .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+                .config(prefix, "org.apache.iceberg.spark.SparkCatalog")
+                .config(prefix + ".io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
+                .config(prefix + ".s3.endpoint", config.getS3Endpoint())
+                .config(prefix + ".s3.access-key-id", config.getS3AccessKeyId())
+                .config(prefix + ".s3.secret-access-key", config.getS3SecretAccessKey())
+                .config("spark.sql.defaultCatalog", catalogName)
+                .config("spark.eventLog.enabled", "true")
+                .config("spark.eventLog.dir", "/var/logs/spark-events")
+                .config("spark.history.fs.logDirectory", "/var/logs/spark-events");
 
         logger.info("adding catalog properties to builder");
         config.getCatalogProperties().forEach((k, v) -> {
@@ -141,7 +136,7 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
         } catch (Exception e) {
             logger.error("Couldn't tear down.", e);
             responseObserver.onError(
-                Status.INTERNAL.withDescription("Couldn't tear down: " + e.getMessage()).withCause(e).asException()
+                    Status.INTERNAL.withDescription("Couldn't tear down: " + e.getMessage()).withCause(e).asException()
             );
         }
     }

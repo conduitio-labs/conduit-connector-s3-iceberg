@@ -20,8 +20,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import io.conduit.grpc.Destination;
 import io.conduit.grpc.Record;
@@ -72,6 +70,7 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
                 insertRecord(rec);
                 break;
             case OPERATION_UPDATE:
+                logger.info("Updates are not supported yet.");
                 break;
             case OPERATION_DELETE:
                 deleteRecord(rec);
@@ -84,13 +83,10 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
     @SneakyThrows
     private void insertRecord(Record rec) {
         Objects.requireNonNull(rec, "record is null");
-
-        logger.trace("inserting record with key: {}", rec.getKey());
         var schema = spark.read().table(tableName).schema();
 
         // todo handle structured data as well
         String afterString = rec.getPayload().getAfter().getRawData().toStringUtf8();
-        logger.info("payload string: {}", afterString);
 
         Dataset<Row> data = spark.read()
                 .schema(schema)
@@ -102,7 +98,6 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
                 .option(SparkWriteOptions.CHECK_NULLABILITY, false)
                 .option(SparkWriteOptions.CHECK_ORDERING, false)
                 .saveAsTable(tableName);
-        logger.info("done writing");
     }
 
     @SneakyThrows
@@ -116,7 +111,6 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
                 .map(entry -> entry.getKey() + "=" + entry.getValue().getStringValue())
                 .collect(Collectors.joining(" AND "));
         deleteQ += condition;
-        System.out.println(deleteQ);
 
         spark.sql(deleteQ).show();
     }
