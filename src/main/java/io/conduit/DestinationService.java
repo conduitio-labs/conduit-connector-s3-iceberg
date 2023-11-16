@@ -37,10 +37,6 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
     public static final Logger logger = LoggerFactory.getLogger(DestinationService.class);
 
     private DefaultDestinationStream runStream;
-    Map<String, String> properties;
-    RESTCatalog catalog;
-    Namespace namespace;
-    TableIdentifier tableId;
     private DestinationConfig config;
     private SparkSession spark;
 
@@ -90,7 +86,6 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
     private void setupSpark() {
         String catalogName = config.getCatalogName();
 
-        logger.info("setting up spark builder");
         String prefix = "spark.sql.catalog." + catalogName;
         var builder = SparkSession
             .builder()
@@ -113,14 +108,11 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
             builder.config(prefix + "." + k.replaceFirst("catalog.", ""), v);
         });
 
-        logger.info("get spark session");
         try {
             spark = builder.getOrCreate();
         } catch (Throwable e) {
             logger.error("couldn't get spark session", e);
         }
-        logger.info("spark session: {}", spark.conf().getAll());
-        logger.info("after try catch");
     }
 
     @Override

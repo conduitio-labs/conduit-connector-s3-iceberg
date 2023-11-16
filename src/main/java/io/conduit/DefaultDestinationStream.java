@@ -39,8 +39,8 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
     public static final Logger logger = LoggerFactory.getLogger(DefaultDestinationStream.class);
 
     private final StreamObserver<Destination.Run.Response> responseObserver;
-    private SparkSession spark;
-    private String tableName;
+    private final SparkSession spark;
+    private final String tableName;
 
     @Override
     public void onNext(Destination.Run.Request request) {
@@ -103,9 +103,6 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
                 .option(SparkWriteOptions.CHECK_ORDERING, false)
                 .saveAsTable(tableName);
         logger.info("done writing");
-
-        // todo: remove
-        showTable();
     }
 
     @SneakyThrows
@@ -122,16 +119,7 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
         System.out.println(deleteQ);
 
         spark.sql(deleteQ).show();
-
-        // todo: remove
-        showTable();
     }
-
-    private void showTable() {
-        String selectQ = "SELECT * FROM " + tableName;
-        spark.sql(selectQ).show();
-    }
-
 
     @Override
     public void onError(Throwable t) {
