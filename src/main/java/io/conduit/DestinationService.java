@@ -49,10 +49,10 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
         } catch (Exception e) {
             logger.error("Error while configuring destination.", e);
             responseObserver.onError(
-                    Status.INTERNAL
-                            .withDescription("couldn't configure task: " + e.getMessage())
-                            .withCause(e)
-                            .asException()
+                Status.INTERNAL
+                    .withDescription("couldn't configure task: " + e.getMessage())
+                    .withCause(e)
+                    .asException()
             );
         }
     }
@@ -73,7 +73,7 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
         } catch (Exception e) {
             logger.error("Error while starting Connector.", e);
             responseObserver.onError(
-                    Status.INTERNAL.withDescription("couldn't start connector: " + e.getMessage()).withCause(e).asException()
+                Status.INTERNAL.withDescription("couldn't start connector: " + e.getMessage()).withCause(e).asException()
             );
         }
     }
@@ -83,16 +83,16 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
 
         String prefix = "spark.sql.catalog." + catalogName;
         var builder = SparkSession
-                .builder()
-                .master("local[*]")
-                .appName("Java API Demo")
-                .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-                .config(prefix, "org.apache.iceberg.spark.SparkCatalog")
-                .config(prefix + ".io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
-                .config(prefix + ".s3.endpoint", config.getS3Endpoint())
-                .config(prefix + ".s3.access-key-id", config.getS3AccessKeyId())
-                .config(prefix + ".s3.secret-access-key", config.getS3SecretAccessKey())
-                .config("spark.sql.defaultCatalog", catalogName)
+            .builder()
+            .master("local[*]")
+            .appName("Java API Demo")
+            .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+            .config(prefix, "org.apache.iceberg.spark.SparkCatalog")
+            .config(prefix + ".io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
+            .config(prefix + ".s3.endpoint", config.getS3Endpoint())
+            .config(prefix + ".s3.access-key-id", config.getS3AccessKeyId())
+            .config(prefix + ".s3.secret-access-key", config.getS3SecretAccessKey())
+            .config("spark.sql.defaultCatalog", catalogName);
 
         logger.info("adding catalog properties to builder");
         config.getCatalogProperties().forEach((k, v) -> {
@@ -100,11 +100,7 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
             builder.config(prefix + "." + k.replaceFirst("catalog.", ""), v);
         });
 
-        try {
-            spark = builder.getOrCreate();
-        } catch (Throwable e) {
-            logger.error("couldn't get spark session", e);
-        }
+        spark = builder.getOrCreate();
     }
 
     @Override
@@ -133,7 +129,7 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
         } catch (Exception e) {
             logger.error("Couldn't tear down.", e);
             responseObserver.onError(
-                    Status.INTERNAL.withDescription("Couldn't tear down: " + e.getMessage()).withCause(e).asException()
+                Status.INTERNAL.withDescription("Couldn't tear down: " + e.getMessage()).withCause(e).asException()
             );
         }
     }
