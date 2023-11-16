@@ -19,8 +19,12 @@ package io.conduit;
 import java.util.List;
 import java.util.Objects;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.JsonFormat;
+import io.conduit.grpc.Data;
 import io.conduit.grpc.Destination;
 import io.conduit.grpc.Record;
 import io.grpc.Status;
@@ -38,6 +42,7 @@ import org.slf4j.LoggerFactory;
 @AllArgsConstructor
 public class DefaultDestinationStream implements StreamObserver<Destination.Run.Request> {
     public static final Logger logger = LoggerFactory.getLogger(DefaultDestinationStream.class);
+    private static final ObjectMapper mapper = new ObjectMapper();
 
     private final StreamObserver<Destination.Run.Response> responseObserver;
     private SparkSession spark;
@@ -88,15 +93,13 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
         logger.trace("inserting record with key: {}", rec.getKey());
         var schema = spark.read().table(tableName).schema();
 
-        String afterString;
-        if (rec.getPayload().getAfter().hasRawData()) {
-            afterString = rec.getPayload().getAfter().getRawData().toStringUtf8();
-        } else {
-            afterString = JsonFormat.printer().print(rec.getPayload().getAfter().getStructuredData());
-        }
+        String afterString = toJsonString(rec.getPayload().getAfter());
         logger.trace("payload string: {}", afterString);
 
         Dataset<Row> data = spark.read()
+            // set the parsing mode to FAILFAST, so that an exception is thrown
+            // when a corrupted record is found.
+            // Ref: https://spark.apache.org/docs/latest/sql-data-sources-json.html#data-source-option
             .option("mode", "FAILFAST")
             .schema(schema)
             .json(spark.createDataset(List.of(afterString), Encoders.STRING()));
@@ -104,11 +107,36 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
         data.write()
             .format("iceberg")
             .mode("append")
-            .option(SparkWriteOptions.CHECK_NULLABILITY, false)
-            .option(SparkWriteOptions.CHECK_ORDERING, false)
             .saveAsTable(tableName);
 
         logger.trace("done writing");
+    }
+
+    // The JSON data may floating point numbers which are actually meant to be integers.
+    // This can be due to:
+    // (1) JSON having a single number type
+    // (2) Protobuf having a single number type
+    // However, Spark is not able, even when using a schema, try converting these into an integer.
+    // That's why we're doing that manually here.
+    // Also see: https://stackoverflow.com/q/77493625/1059744
+    @SneakyThrows
+    private String toJsonString(Data data) {
+        String jsonStr;
+        if (data.hasRawData()) {
+            jsonStr = data.getRawData().toStringUtf8();
+        } else {
+            jsonStr = JsonFormat.printer().print(data.getStructuredData());
+        }
+
+        ObjectNode json = (ObjectNode) mapper.readTree(jsonStr);
+        json.fieldNames().forEachRemaining(field -> {
+            JsonNode value = json.get(field);
+            if (value.canConvertToExactIntegral()) {
+                json.put(field, value.intValue());
+            }
+        });
+
+        return mapper.writeValueAsString(json);
     }
 
 

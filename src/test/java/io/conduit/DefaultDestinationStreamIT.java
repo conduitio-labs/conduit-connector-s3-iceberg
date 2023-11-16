@@ -53,8 +53,9 @@ class DefaultDestinationStreamIT {
         Types.NestedField.optional(4, "integer_field", Types.IntegerType.get()),
         Types.NestedField.optional(5, "float_field", Types.FloatType.get()),
         Types.NestedField.optional(6, "map_field", Types.MapType.ofOptional(200, 300, Types.StringType.get(), Types.StringType.get())),
-        Types.NestedField.optional(7, "float_int_field", Types.FloatType.get())
-        );
+        Types.NestedField.optional(7, "integer_in_float_field", Types.FloatType.get()),
+        Types.NestedField.optional(8, "missing_field", Types.StringType.get())
+    );
 
     Namespace namespace = Namespace.of("webapp");
     TableIdentifier tableId = TableIdentifier.of(namespace, "DefaultDestinationStreamIT");
@@ -154,7 +155,7 @@ class DefaultDestinationStreamIT {
             config.fullTableName()
         );
 
-        underTest.onNext(testRecordRaw(eventTime));
+        underTest.onNext(makeRawRecord(eventTime));
         verify(observerMock).onNext(any());
         verify(observerMock, never()).onError(any());
 
@@ -176,7 +177,7 @@ class DefaultDestinationStreamIT {
             config.fullTableName()
         );
 
-        underTest.onNext(testRecordStructured(eventTime));
+        underTest.onNext(makeStructuredRecord(eventTime));
         verify(observerMock).onNext(any());
         verify(observerMock, never()).onError(any());
 
@@ -191,7 +192,7 @@ class DefaultDestinationStreamIT {
         assertEquals(eventTime, record.getField("timestamp_tz_field"));
         assertEquals(123, record.getField("integer_field"));
         assertEquals(456.78f, record.getField("float_field"));
-        assertEquals(99f, record.getField("float_int_field"));
+        assertEquals(987f, record.getField("integer_in_float_field"));
         assertEquals(List.of("item_1", "item_2"), record.getField("list_field"));
         assertEquals(Map.of("foo", "bar"), record.getField("map_field"));
     }
@@ -217,7 +218,7 @@ class DefaultDestinationStreamIT {
     }
 
     @NotNull
-    private Request testRecordRaw(OffsetDateTime eventTime) {
+    private Request makeRawRecord(OffsetDateTime eventTime) {
         String eventTimeStr = eventTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
         String jsonString = """
@@ -226,7 +227,7 @@ class DefaultDestinationStreamIT {
                 "timestamp_tz_field":  "%s",
                 "integer_field": 123,
                 "float_field": 456.78,
-                "float_int_field": 99,
+                "integer_in_float_field": 987,
                 "list_field": ["item_1", "item_2"],
                 "map_field": {"foo": "bar"}
                 }
@@ -247,7 +248,7 @@ class DefaultDestinationStreamIT {
     }
 
     @NotNull
-    private Request testRecordStructured(OffsetDateTime eventTime) {
+    private Request makeStructuredRecord(OffsetDateTime eventTime) {
         String eventTimeStr = eventTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
         return Request.newBuilder()
@@ -261,6 +262,7 @@ class DefaultDestinationStreamIT {
                                     .putFields("timestamp_tz_field", Value.newBuilder().setStringValue(eventTimeStr).build())
                                     .putFields("integer_field", Value.newBuilder().setNumberValue(123).build())
                                     .putFields("float_field", Value.newBuilder().setNumberValue(456.78).build())
+                                    .putFields("integer_in_float_field", Value.newBuilder().setNumberValue(987).build())
                                     .putFields(
                                         "map_field",
                                         Value.newBuilder().setStructValue(
