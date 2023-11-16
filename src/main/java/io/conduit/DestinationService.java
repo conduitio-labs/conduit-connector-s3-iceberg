@@ -93,9 +93,6 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
                 .config(prefix + ".s3.access-key-id", config.getS3AccessKeyId())
                 .config(prefix + ".s3.secret-access-key", config.getS3SecretAccessKey())
                 .config("spark.sql.defaultCatalog", catalogName)
-                .config("spark.eventLog.enabled", "true")
-                .config("spark.eventLog.dir", "/var/logs/spark-events")
-                .config("spark.history.fs.logDirectory", "/var/logs/spark-events");
 
         logger.info("adding catalog properties to builder");
         config.getCatalogProperties().forEach((k, v) -> {
