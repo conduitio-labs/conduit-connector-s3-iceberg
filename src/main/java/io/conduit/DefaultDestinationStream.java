@@ -70,7 +70,7 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
                 insertRecord(rec);
                 break;
             case OPERATION_UPDATE:
-                logger.info("Updates are not supported yet.");
+                logger.warn("Updates are not supported yet.");
                 break;
             case OPERATION_DELETE:
                 deleteRecord(rec);
@@ -95,8 +95,6 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
         data.write()
                 .format("iceberg")
                 .mode(SaveMode.Append)
-                .option(SparkWriteOptions.CHECK_NULLABILITY, false)
-                .option(SparkWriteOptions.CHECK_ORDERING, false)
                 .saveAsTable(tableName);
     }
 
