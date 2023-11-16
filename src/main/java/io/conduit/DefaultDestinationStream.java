@@ -30,10 +30,7 @@ import io.grpc.stub.StreamObserver;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.iceberg.spark.SparkWriteOptions;
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Encoders;
-import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -101,7 +98,7 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
 
         data.write()
                 .format("iceberg")
-                .mode("append")
+                .mode(SaveMode.Append)
                 .option(SparkWriteOptions.CHECK_NULLABILITY, false)
                 .option(SparkWriteOptions.CHECK_ORDERING, false)
                 .saveAsTable(tableName);
