@@ -112,7 +112,7 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
         logger.trace("done writing");
     }
 
-    // The JSON data may floating point numbers which are actually meant to be integers.
+    // The JSON data may have floating point numbers that are meant to be integers.
     // This can be due to:
     // (1) JSON having a single number type
     // (2) Protobuf having a single number type
