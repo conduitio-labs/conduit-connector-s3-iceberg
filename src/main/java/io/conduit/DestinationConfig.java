@@ -79,7 +79,7 @@ public class DestinationConfig {
      * <li><code>s3.access-key-id</code></li>
      * <li><code>s3.secret-access-key</code></li>
      * <p>
-     * The catalog properties need to prefixed with <code>catalog.</code>.
+     * The catalog properties need to be prefixed with <code>catalog.</code>.
      * If, for example, the catalog has a parameter <code>uri=https://example.com</code>,
      * then the following should be added to the map:
      * <code>catalog.uri=https://example.com</code>
@@ -119,5 +119,9 @@ public class DestinationConfig {
     @JsonAnySetter
     public void setOtherField(String name, String value) {
         catalogProperties.put(name, value);
+    }
+
+    public String fullTableName() {
+        return getCatalogName() + "." + getNamespace() + "." + getTableName();
     }
 }

@@ -16,13 +16,12 @@
 
 package io.conduit;
 
-import java.util.Map;
-
 import io.conduit.grpc.Destination;
 import io.conduit.grpc.Destination.Teardown;
 import io.conduit.grpc.DestinationPluginGrpc;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +32,8 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
     public static final Logger logger = LoggerFactory.getLogger(DestinationService.class);
 
     private DefaultDestinationStream runStream;
+    private DestinationConfig config;
+    private SparkSession spark;
 
     @Override
     public void configure(Destination.Configure.Request request, StreamObserver<Destination.Configure.Response> responseObserver) {
@@ -40,7 +41,7 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
         try {
             // the returned config map is unmodifiable, so we make a copy
             // since we need to remove some keys
-            DestinationConfig.fromMap(request.getConfigMap());
+            config = DestinationConfig.fromMap(request.getConfigMap());
             logger.info("Done configuring the destination.");
 
             responseObserver.onNext(Destination.Configure.Response.newBuilder().build());
@@ -48,10 +49,10 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
         } catch (Exception e) {
             logger.error("Error while configuring destination.", e);
             responseObserver.onError(
-                    Status.INTERNAL
-                            .withDescription("couldn't configure task: " + e.getMessage())
-                            .withCause(e)
-                            .asException()
+                Status.INTERNAL
+                    .withDescription("couldn't configure task: " + e.getMessage())
+                    .withCause(e)
+                    .asException()
             );
         }
     }
@@ -62,21 +63,49 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
         logger.info("Starting the destination.");
 
         try {
+            logger.info("Setting up a spark session.");
+            setupSpark();
+
             logger.info("Destination started.");
 
             responseObserver.onNext(Destination.Start.Response.newBuilder().build());
             responseObserver.onCompleted();
         } catch (Exception e) {
-            logger.error("Error while starting.", e);
+            logger.error("Error while starting Connector.", e);
             responseObserver.onError(
-                    Status.INTERNAL.withDescription("couldn't start connector: " + e.getMessage()).withCause(e).asException()
+                Status.INTERNAL.withDescription("couldn't start connector: " + e.getMessage()).withCause(e).asException()
             );
         }
     }
 
+    private void setupSpark() {
+        String catalogName = config.getCatalogName();
+
+        String prefix = "spark.sql.catalog." + catalogName;
+        var builder = SparkSession
+            .builder()
+            .master("local[*]")
+            .appName("Java API Demo")
+            .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+            .config(prefix, "org.apache.iceberg.spark.SparkCatalog")
+            .config(prefix + ".io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
+            .config(prefix + ".s3.endpoint", config.getS3Endpoint())
+            .config(prefix + ".s3.access-key-id", config.getS3AccessKeyId())
+            .config(prefix + ".s3.secret-access-key", config.getS3SecretAccessKey())
+            .config("spark.sql.defaultCatalog", catalogName);
+
+        logger.info("adding catalog properties to builder");
+        config.getCatalogProperties().forEach((k, v) -> {
+            // keys are in the form of catalog.propertyName
+            builder.config(prefix + "." + k.replaceFirst("catalog.", ""), v);
+        });
+
+        spark = builder.getOrCreate();
+    }
+
     @Override
     public StreamObserver<Destination.Run.Request> run(StreamObserver<Destination.Run.Response> responseObserver) {
-        this.runStream = new DefaultDestinationStream(responseObserver);
+        this.runStream = new DefaultDestinationStream(responseObserver, spark, config.fullTableName());
         return runStream;
     }
 
@@ -91,13 +120,16 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
     public void teardown(Teardown.Request request, StreamObserver<Teardown.Response> responseObserver) {
         logger.info("Tearing down...");
         try {
+            if (spark != null) {
+                spark.stop();
+            }
             responseObserver.onNext(Teardown.Response.newBuilder().build());
             responseObserver.onCompleted();
             logger.info("Torn down.");
         } catch (Exception e) {
             logger.error("Couldn't tear down.", e);
             responseObserver.onError(
-                    Status.INTERNAL.withDescription("Couldn't tear down: " + e.getMessage()).withCause(e).asException()
+                Status.INTERNAL.withDescription("Couldn't tear down: " + e.getMessage()).withCause(e).asException()
             );
         }
     }
