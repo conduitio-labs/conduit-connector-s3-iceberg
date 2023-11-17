@@ -4,15 +4,13 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ListValue;
-import java.util.*;
-
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import io.conduit.grpc.Change;
@@ -36,8 +34,6 @@ import org.apache.iceberg.types.Types;
 import org.apache.spark.sql.SparkSession;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -121,11 +117,12 @@ class DefaultDestinationStreamIT {
             catalog.createTable(tableId, schema);
 
             // insert some record into the table
-            String insertQ = "INSERT INTO "
-                    + config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName()
+            String insertQ =
+                "INSERT INTO " + config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName()
+                    + "(string_field, timestamp_tz_field, list_field, integer_field, float_field, integer_in_float_field, map_field, missing_field)"
                     + " VALUES "
-                    + "('info', timestamp 'today', 'an info message', array('trace 1'), 'id1', 123, map('bar','baz')) , "
-                    + "('error', timestamp 'today', 'an error message', array('trace 2'), 'id2', 456, map('baz','foo'));";
+                    + "('info', timestamp 'today', array('trace 1'), 12, 98.76, 100, map('bar','baz'), 'sunny'), "
+                    + "('error', timestamp 'today', array('trace 2'), 34, 87.65, 200, map('baz','foo'), 'rainy');";
             spark.sql(insertQ).show();
         }
     }
@@ -201,18 +198,18 @@ class DefaultDestinationStreamIT {
         var observerMock = Mockito.mock(StreamObserver.class);
         DefaultDestinationStream stream = new DefaultDestinationStream(observerMock, spark, config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName());
         stream.onNext(
-                Request.newBuilder()
-                        .setRecord(Record.newBuilder()
-                                .setKey(
-                                        Data.newBuilder()
-                                                .setStructuredData(Struct.newBuilder()
-                                                        .putFields("integer_field", Value.newBuilder()
-                                                                .setStringValue("123")
-                                                                .build())
-                                                        .build())
-                                ).setOperation(Operation.OPERATION_DELETE)
-                                .build()
-                        ).build()
+            Request.newBuilder()
+                .setRecord(Record.newBuilder()
+                    .setKey(
+                        Data.newBuilder()
+                            .setStructuredData(Struct.newBuilder()
+                                .putFields("integer_field", Value.newBuilder()
+                                    .setStringValue("12")
+                                    .build())
+                                .build())
+                    ).setOperation(Operation.OPERATION_DELETE)
+                    .build()
+                ).build()
         );
         var foundRecords = readIcebergRecords();
         assertEquals(1, foundRecords.size());
