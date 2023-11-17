@@ -18,6 +18,7 @@ package io.conduit;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,10 +32,10 @@ import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
-import org.apache.iceberg.spark.SparkWriteOptions;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SaveMode;
 import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,8 +46,9 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private final StreamObserver<Destination.Run.Response> responseObserver;
-    private SparkSession spark;
-    private String tableName;
+
+    private final SparkSession spark;
+    private final String tableName;
 
     @Override
     public void onNext(Destination.Run.Request request) {
@@ -78,12 +80,29 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
                 insertRecord(rec);
                 break;
             case OPERATION_UPDATE:
+                logger.warn("Updates are not supported yet.");
                 break;
             case OPERATION_DELETE:
+                deleteRecord(rec);
                 break;
             default:
                 break;
         }
+    }
+
+    @SneakyThrows
+    private void deleteRecord(Record rec) {
+        String deleteQ = "DELETE FROM " + tableName + " WHERE ";
+        // todo: check if key is not structured
+        var mp = rec.getKey().getStructuredData().getFieldsMap();
+
+        String condition = mp.entrySet()
+            .stream()
+            .map(entry -> entry.getKey() + "=" + entry.getValue().getStringValue())
+            .collect(Collectors.joining(" AND "));
+        deleteQ += condition;
+
+        spark.sql(deleteQ).show();
     }
 
     @SneakyThrows
@@ -106,7 +125,7 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
 
         data.write()
             .format("iceberg")
-            .mode("append")
+            .mode(SaveMode.Append)
             .saveAsTable(tableName);
 
         logger.trace("done writing");
@@ -138,7 +157,6 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
 
         return mapper.writeValueAsString(json);
     }
-
 
     @Override
     public void onError(Throwable t) {

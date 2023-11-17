@@ -10,6 +10,9 @@ import java.util.Map;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ListValue;
+import java.util.*;
+
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import io.conduit.grpc.Change;
@@ -35,6 +38,9 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -113,6 +119,14 @@ class DefaultDestinationStreamIT {
                 catalog.dropTable(tableId);
             }
             catalog.createTable(tableId, schema);
+
+            // insert some record into the table
+            String insertQ = "INSERT INTO "
+                    + config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName()
+                    + " VALUES "
+                    + "('info', timestamp 'today', 'an info message', array('trace 1'), 'id1', 123, map('bar','baz')) , "
+                    + "('error', timestamp 'today', 'an error message', array('trace 2'), 'id2', 456, map('baz','foo'));";
+            spark.sql(insertQ).show();
         }
     }
 
@@ -130,10 +144,7 @@ class DefaultDestinationStreamIT {
             .config(prefix + ".s3.endpoint", config.getS3Endpoint())
             .config(prefix + ".s3.access-key-id", config.getS3AccessKeyId())
             .config(prefix + ".s3.secret-access-key", config.getS3SecretAccessKey())
-            .config("spark.sql.defaultCatalog", catalogName)
-            .config("spark.eventLog.enabled", "true")
-            .config("spark.eventLog.dir", "/var/logs/spark-events")
-            .config("spark.history.fs.logDirectory", "/var/logs/spark-events");
+            .config("spark.sql.defaultCatalog", catalogName);
 
         config.getCatalogProperties().forEach((k, v) -> {
             // keys are in the form of catalog.propertyName
@@ -160,9 +171,8 @@ class DefaultDestinationStreamIT {
         verify(observerMock, never()).onError(any());
 
         var foundRecords = readIcebergRecords();
-        assertEquals(1, foundRecords.size());
-        var record = foundRecords.get(0);
-        assertOk(record, eventTime);
+        assertEquals(3, foundRecords.size());
+        assertOk(foundRecords.get(2), eventTime);
     }
 
     @Test
@@ -182,12 +192,34 @@ class DefaultDestinationStreamIT {
         verify(observerMock, never()).onError(any());
 
         var foundRecords = readIcebergRecords();
-        assertEquals(1, foundRecords.size());
-        var record = foundRecords.get(0);
-        assertOk(record, eventTime);
+        assertEquals(3, foundRecords.size());
+        assertOk(foundRecords.get(2), eventTime);
     }
 
-    private static void assertOk(org.apache.iceberg.data.Record record, OffsetDateTime eventTime) {
+    @Test
+    void testDelete() {
+        var observerMock = Mockito.mock(StreamObserver.class);
+        DefaultDestinationStream stream = new DefaultDestinationStream(observerMock, spark, config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName());
+        stream.onNext(
+                Request.newBuilder()
+                        .setRecord(Record.newBuilder()
+                                .setKey(
+                                        Data.newBuilder()
+                                                .setStructuredData(Struct.newBuilder()
+                                                        .putFields("integer_field", Value.newBuilder()
+                                                                .setStringValue("123")
+                                                                .build())
+                                                        .build())
+                                ).setOperation(Operation.OPERATION_DELETE)
+                                .build()
+                        ).build()
+        );
+        var foundRecords = readIcebergRecords();
+        assertEquals(1, foundRecords.size());
+        // assert more
+    }
+
+    private void assertOk(org.apache.iceberg.data.Record record, OffsetDateTime eventTime) {
         assertEquals("debug", record.getField("string_field"));
         assertEquals(eventTime, record.getField("timestamp_tz_field"));
         assertEquals(123, record.getField("integer_field"));
@@ -214,6 +246,8 @@ class DefaultDestinationStreamIT {
             }
         }
 
+        // sort the records depending on the "integer_field"
+        records.sort(Comparator.comparingInt(record -> (Integer) record.getField("integer_field")));
         return records;
     }
 

@@ -16,8 +16,6 @@
 
 package io.conduit;
 
-import java.util.Map;
-
 import io.conduit.grpc.Destination;
 import io.conduit.grpc.Destination.Teardown;
 import io.conduit.grpc.DestinationPluginGrpc;
@@ -37,10 +35,6 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
     public static final Logger logger = LoggerFactory.getLogger(DestinationService.class);
 
     private DefaultDestinationStream runStream;
-    Map<String, String> properties;
-    RESTCatalog catalog;
-    Namespace namespace;
-    TableIdentifier tableId;
     private DestinationConfig config;
     private SparkSession spark;
 
@@ -102,10 +96,7 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
             .config(prefix + ".s3.endpoint", config.getS3Endpoint())
             .config(prefix + ".s3.access-key-id", config.getS3AccessKeyId())
             .config(prefix + ".s3.secret-access-key", config.getS3SecretAccessKey())
-            .config("spark.sql.defaultCatalog", catalogName)
-            .config("spark.eventLog.enabled", "true")
-            .config("spark.eventLog.dir", "/var/logs/spark-events")
-            .config("spark.history.fs.logDirectory", "/var/logs/spark-events");
+            .config("spark.sql.defaultCatalog", catalogName);
 
         logger.info("adding catalog properties to builder");
         config.getCatalogProperties().forEach((k, v) -> {
@@ -113,14 +104,7 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
             builder.config(prefix + "." + k.replaceFirst("catalog.", ""), v);
         });
 
-        logger.info("get spark session");
-        try {
-            spark = builder.getOrCreate();
-        } catch (Throwable e) {
-            logger.error("couldn't get spark session", e);
-        }
-        logger.info("spark session: {}", spark.conf().getAll());
-        logger.info("after try catch");
+        spark = builder.getOrCreate();
     }
 
     @Override
