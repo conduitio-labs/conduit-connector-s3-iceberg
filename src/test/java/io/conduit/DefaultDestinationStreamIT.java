@@ -136,7 +136,7 @@ class DefaultDestinationStreamIT {
         OffsetDateTime eventTime = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
 
         var observerMock = mock(StreamObserver.class);
-        DefaultDestinationStream underTest = new DefaultDestinationStream(
+        SparkDestinationStream underTest = new SparkDestinationStream(
             observerMock,
             spark,
             config.fullTableName()
@@ -157,7 +157,7 @@ class DefaultDestinationStreamIT {
         OffsetDateTime eventTime = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
 
         var observerMock = mock(StreamObserver.class);
-        DefaultDestinationStream underTest = new DefaultDestinationStream(
+        SparkDestinationStream underTest = new SparkDestinationStream(
             observerMock,
             spark,
             config.fullTableName()
@@ -175,7 +175,7 @@ class DefaultDestinationStreamIT {
     @Test
     void testDelete() {
         var observerMock = Mockito.mock(StreamObserver.class);
-        DefaultDestinationStream stream = new DefaultDestinationStream(observerMock, spark, config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName());
+        SparkDestinationStream stream = new SparkDestinationStream(observerMock, spark, config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName());
         stream.onNext(
             Request.newBuilder()
                 .setRecord(Record.newBuilder()
