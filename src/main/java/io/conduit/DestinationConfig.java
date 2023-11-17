@@ -45,7 +45,7 @@ public class DestinationConfig {
     private static final List<String> REQUIRED_KEYS = List.of(
         "catalog.name", "catalog.catalog-impl",
         "namespace", "table.name",
-        "s3.endpoint", "s3.access-key-id", "s3.secret-access-key"
+        "s3.endpoint", "s3.accessKeyId", "s3.secretAccessKey"
     );
 
     @JsonProperty(value = "catalog.name")
@@ -60,10 +60,10 @@ public class DestinationConfig {
     @JsonProperty(value = "s3.endpoint")
     private String s3Endpoint;
 
-    @JsonProperty(value = "s3.access-key-id")
+    @JsonProperty(value = "s3.accessKeyId")
     private String s3AccessKeyId;
 
-    @JsonProperty(value = "s3.secret-access-key")
+    @JsonProperty(value = "s3.secretAccessKey")
     private String s3SecretAccessKey;
 
     @JsonProperty(value = "s3.region")
