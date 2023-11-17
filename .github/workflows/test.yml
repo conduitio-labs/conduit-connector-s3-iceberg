@@ -28,9 +28,5 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Test
-        env:
-          # Managed through https://sonarcloud.io/account/security/
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
         # -B (batch mode) to suppress progress (pollutes logs)
         run: mvn -B test

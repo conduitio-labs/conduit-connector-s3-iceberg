@@ -33,9 +33,9 @@ public class Server {
 
     public Server(ServerBuilder<?> serverBuilder) {
         grpcServer = serverBuilder
-                .addService(new SpecifierService())
-                .addService(new DestinationService())
-                .build();
+            .addService(new SpecifierService())
+            .addService(new DestinationService())
+            .build();
     }
 
     /**

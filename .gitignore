@@ -4,3 +4,5 @@ dist/
 *.iml
 dependency-reduced-pom.xml
 .DS_Store
+derby.log
+metastore_db
