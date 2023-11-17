@@ -67,8 +67,7 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
 
         try {
             logger.info("Setting up a spark session.");
-            setupSpark();
-
+            spark = SparkUtils.create("conduit-connector-s3-iceberg", config);
             logger.info("Destination started.");
 
             responseObserver.onNext(Destination.Start.Response.newBuilder().build());
@@ -79,32 +78,6 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
                 Status.INTERNAL.withDescription("couldn't start connector: " + e.getMessage()).withCause(e).asException()
             );
         }
-    }
-
-    private void setupSpark() {
-        String catalogName = config.getCatalogName();
-
-        logger.info("setting up spark builder");
-        String prefix = "spark.sql.catalog." + catalogName;
-        var builder = SparkSession
-            .builder()
-            .master("local[*]")
-            .appName("Java API Demo")
-            .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-            .config(prefix, "org.apache.iceberg.spark.SparkCatalog")
-            .config(prefix + ".io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
-            .config(prefix + ".s3.endpoint", config.getS3Endpoint())
-            .config(prefix + ".s3.access-key-id", config.getS3AccessKeyId())
-            .config(prefix + ".s3.secret-access-key", config.getS3SecretAccessKey())
-            .config("spark.sql.defaultCatalog", catalogName);
-
-        logger.info("adding catalog properties to builder");
-        config.getCatalogProperties().forEach((k, v) -> {
-            // keys are in the form of catalog.propertyName
-            builder.config(prefix + "." + k.replaceFirst("catalog.", ""), v);
-        });
-
-        spark = builder.getOrCreate();
     }
 
     @Override

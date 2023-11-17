@@ -20,8 +20,8 @@ import java.util.Collection;
 import java.util.Map;
 
 @SuppressWarnings("checkstyle:MissingJavadocType")
-public final class Utils {
-    private Utils() {
+public final class CollectionUtils {
+    private CollectionUtils() {
     }
 
     public static boolean isEmpty(String str) {

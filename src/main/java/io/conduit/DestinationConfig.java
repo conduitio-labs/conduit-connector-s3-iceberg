@@ -66,6 +66,9 @@ public class DestinationConfig {
     @JsonProperty(value = "s3.secret-access-key")
     private String s3SecretAccessKey;
 
+    @JsonProperty(value = "s3.region")
+    private String s3Region;
+
     private Map<String, String> catalogProperties = new HashMap<>();
 
     /**
@@ -94,7 +97,9 @@ public class DestinationConfig {
         var unknownProps = cfg.getCatalogProperties().keySet().stream()
             .filter(not(k -> k.startsWith(CATALOG_PREFIX)))
             .toList();
-        if (!Utils.isEmpty(unknownProps)) {
+
+
+        if (!CollectionUtils.isEmpty(unknownProps)) {
             throw new IllegalArgumentException("unknown properties: " + unknownProps);
         }
 
@@ -106,7 +111,7 @@ public class DestinationConfig {
             .filter(not(cfgMap::containsKey))
             .toList();
 
-        if (!Utils.isEmpty(missing)) {
+        if (!CollectionUtils.isEmpty(missing)) {
             throw new IllegalArgumentException("missing keys: " + missing);
         }
     }

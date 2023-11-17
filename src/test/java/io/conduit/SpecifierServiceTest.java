@@ -1,5 +1,6 @@
 package io.conduit;
 
+import java.util.Map;
 import java.util.Set;
 
 import io.conduit.grpc.Specifier;
@@ -8,7 +9,9 @@ import io.grpc.stub.StreamObserver;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import software.amazon.awssdk.regions.Region;
 
+import static java.util.stream.Collectors.toSet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -33,25 +36,42 @@ class SpecifierServiceTest {
         assertTrue(response.getSourceParamsMap().isEmpty());
 
         var destParams = response.getDestinationParamsMap();
-        assertEquals(7, destParams.size());
-        assertTrue(destParams.containsKey("catalog.catalog-impl"));
-        var validations = destParams.get("catalog.catalog-impl").getValidationsList();
+        assertEquals(8, destParams.size());
+
+        assertParameterValidations(
+            destParams,
+            "catalog.catalog-impl",
+            Set.of(
+                "org.apache.iceberg.hadoop.HadoopCatalog",
+                "org.apache.iceberg.jdbc.JdbcCatalog",
+                "org.apache.iceberg.rest.RESTCatalog"
+            )
+        );
+
+        assertParameterValidations(
+            destParams,
+            "s3.region",
+            Region.regions().stream().map(Region::toString).collect(toSet())
+        );
+    }
+
+    private void assertParameterValidations(Map<String, Specifier.Parameter> params,
+                                            String name,
+                                            Set<String> possibleValues) {
+        assertTrue(params.containsKey(name));
+
+        var validations = params.get(name).getValidationsList();
         assertEquals(2, validations.size());
 
         boolean requiredFound = false;
         boolean inclusionFound = false;
         for (var val : validations) {
             switch (val.getType()) {
-                case TYPE_REQUIRED ->
-                    requiredFound = true;
+                case TYPE_REQUIRED -> requiredFound = true;
                 case TYPE_INCLUSION -> {
                     inclusionFound = true;
                     assertEquals(
-                        Set.of(
-                            "org.apache.iceberg.hadoop.HadoopCatalog",
-                            "org.apache.iceberg.jdbc.JdbcCatalog",
-                            "org.apache.iceberg.rest.RESTCatalog"
-                        ),
+                        possibleValues,
                         Set.of(
                             val.getValue().split(",")
                         )

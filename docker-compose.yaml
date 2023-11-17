@@ -67,7 +67,7 @@ services:
       /usr/bin/mc rm -r --force minio/warehouse;
       /usr/bin/mc mb minio/warehouse;
       /usr/bin/mc policy set public minio/warehouse;
-
+      
       /usr/bin/mc rm -r --force minio/webapp;
       /usr/bin/mc mb minio/webapp;
       /usr/bin/mc policy set public minio/webapp;

@@ -19,6 +19,7 @@ package io.conduit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import io.conduit.grpc.Specifier;
 import io.conduit.grpc.Specifier.Parameter;
@@ -28,6 +29,7 @@ import io.conduit.grpc.Specifier.Specify.Response;
 import io.conduit.grpc.SpecifierPluginGrpc;
 import io.grpc.stub.StreamObserver;
 import lombok.extern.slf4j.Slf4j;
+import software.amazon.awssdk.regions.Region;
 
 /**
  * A gRPC service exposing this connector's specification.
@@ -116,8 +118,24 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
                 .addValidations(requiredValidation)
                 .build()
         );
+        params.put(
+            "s3.region",
+            Specifier.Parameter.newBuilder()
+                .setDescription("S3 Region")
+                .setType(Specifier.Parameter.Type.TYPE_STRING)
+                .addValidations(requiredValidation)
+                .addValidations(availableS3Regions())
+                .build()
+        );
 
         return params;
+    }
+
+    private Validation availableS3Regions() {
+        return Validation.newBuilder()
+            .setType(Validation.Type.TYPE_INCLUSION)
+            .setValue(Region.regions().stream().map(Region::toString).collect(Collectors.joining(",")))
+            .build();
     }
 
     private Validation availableCatalogImpl() {

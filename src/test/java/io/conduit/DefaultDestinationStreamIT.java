@@ -37,6 +37,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import software.amazon.awssdk.regions.Region;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -73,7 +74,8 @@ class DefaultDestinationStreamIT {
             "catalog.uri", "http://localhost:8181",
             "s3.endpoint", "http://localhost:9000",
             "s3.access-key-id", "admin",
-            "s3.secret-access-key", "password"
+            "s3.secret-access-key", "password",
+            "s3.region", Region.US_EAST_1.toString()
         ));
         catalogProps = Map.of(
             CatalogProperties.CATALOG_IMPL, "org.apache.iceberg.rest.RESTCatalog",
@@ -85,7 +87,8 @@ class DefaultDestinationStreamIT {
             S3FileIOProperties.SECRET_ACCESS_KEY, config.getS3SecretAccessKey()
         );
 
-        spark = initSpark();
+        spark = SparkUtils.create(DefaultDestinationStreamIT.class.getName(), config);
+
         initTable();
     }
 
@@ -125,30 +128,6 @@ class DefaultDestinationStreamIT {
                     + "('error', timestamp 'today', array('trace 2'), 34, 87.65, 200, map('baz','foo'), 'rainy');";
             spark.sql(insertQ).show();
         }
-    }
-
-    private SparkSession initSpark() {
-        String catalogName = config.getCatalogName();
-
-        String prefix = "spark.sql.catalog." + catalogName;
-        var builder = SparkSession
-            .builder()
-            .master("local[*]")
-            .appName("Java API Demo")
-            .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-            .config(prefix, "org.apache.iceberg.spark.SparkCatalog")
-            .config(prefix + ".io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
-            .config(prefix + ".s3.endpoint", config.getS3Endpoint())
-            .config(prefix + ".s3.access-key-id", config.getS3AccessKeyId())
-            .config(prefix + ".s3.secret-access-key", config.getS3SecretAccessKey())
-            .config("spark.sql.defaultCatalog", catalogName);
-
-        config.getCatalogProperties().forEach((k, v) -> {
-            // keys are in the form of catalog.propertyName
-            builder.config(prefix + "." + k.replaceFirst("catalog.", ""), v);
-        });
-
-        return builder.getOrCreate();
     }
 
     @Test
