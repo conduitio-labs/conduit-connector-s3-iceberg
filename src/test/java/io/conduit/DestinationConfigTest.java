@@ -22,7 +22,8 @@ class DestinationConfigTest {
             "catalog.uri", "http://localhost:8181",
             "s3.endpoint", "http://localhost:9000",
             "s3.access-key-id", "test-access-key-id",
-            "s3.secret-access-key", "test-secret-access-key"
+            "s3.secret-access-key", "test-secret-access-key",
+            "s3.region", Region.US_EAST_1.toString()
         );
 
         assertEquals(
