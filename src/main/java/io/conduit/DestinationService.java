@@ -21,6 +21,9 @@ import io.conduit.grpc.Destination.Teardown;
 import io.conduit.grpc.DestinationPluginGrpc;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.apache.iceberg.catalog.Namespace;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.rest.RESTCatalog;
 import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,6 +84,7 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
     private void setupSpark() {
         String catalogName = config.getCatalogName();
 
+        logger.info("setting up spark builder");
         String prefix = "spark.sql.catalog." + catalogName;
         var builder = SparkSession
             .builder()
