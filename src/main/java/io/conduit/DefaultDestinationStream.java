@@ -116,7 +116,7 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
     // This can be due to:
     // (1) JSON having a single number type
     // (2) Protobuf having a single number type
-    // However, Spark is not able to convert these into an integer., even when using a schema.
+    // However, Spark is not able to convert these into an integer, even when using a schema.
     // That's why we're doing that manually here.
     // Also see: https://stackoverflow.com/q/77493625/1059744
     @SneakyThrows
