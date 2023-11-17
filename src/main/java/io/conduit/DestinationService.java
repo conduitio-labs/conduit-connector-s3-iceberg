@@ -16,16 +16,11 @@
 
 package io.conduit;
 
-import java.util.Map;
-
 import io.conduit.grpc.Destination;
 import io.conduit.grpc.Destination.Teardown;
 import io.conduit.grpc.DestinationPluginGrpc;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import org.apache.iceberg.catalog.Namespace;
-import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.rest.RESTCatalog;
 import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,10 +32,6 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
     public static final Logger logger = LoggerFactory.getLogger(DestinationService.class);
 
     private DefaultDestinationStream runStream;
-    Map<String, String> properties;
-    RESTCatalog catalog;
-    Namespace namespace;
-    TableIdentifier tableId;
     private DestinationConfig config;
     private SparkSession spark;
 
@@ -74,7 +65,6 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
         try {
             logger.info("Setting up a spark session.");
             spark = SparkUtils.create("conduit-connector-s3-iceberg", config);
-
             logger.info("Destination started.");
 
             responseObserver.onNext(Destination.Start.Response.newBuilder().build());

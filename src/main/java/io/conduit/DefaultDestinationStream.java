@@ -18,9 +18,8 @@ package io.conduit;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import io.conduit.grpc.Destination;
 import io.conduit.grpc.Record;
@@ -28,10 +27,10 @@ import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
-import org.apache.iceberg.spark.SparkWriteOptions;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SaveMode;
 import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,8 +40,9 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
     public static final Logger logger = LoggerFactory.getLogger(DefaultDestinationStream.class);
 
     private final StreamObserver<Destination.Run.Response> responseObserver;
-    private SparkSession spark;
-    private String tableName;
+
+    private final SparkSession spark;
+    private final String tableName;
 
     @Override
     public void onNext(Destination.Run.Request request) {
@@ -74,8 +74,10 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
                 insertRecord(rec);
                 break;
             case OPERATION_UPDATE:
+                logger.warn("Updates are not supported yet.");
                 break;
             case OPERATION_DELETE:
+                deleteRecord(rec);
                 break;
             default:
                 break;
@@ -91,7 +93,6 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
 
         // todo handle structured data as well
         String afterString = rec.getPayload().getAfter().getRawData().toStringUtf8();
-        logger.info("payload string: {}", afterString);
 
         Dataset<Row> data = spark.read()
             .schema(schema)
@@ -99,16 +100,24 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
 
         data.write()
             .format("iceberg")
-            .mode("append")
-            .option(SparkWriteOptions.CHECK_NULLABILITY, false)
-            .option(SparkWriteOptions.CHECK_ORDERING, false)
+            .mode(SaveMode.Append)
             .saveAsTable(tableName);
-        logger.info("done writing");
-
-        String selectQ = "SELECT * FROM " + tableName;
-        spark.sql(selectQ).show();
     }
 
+    @SneakyThrows
+    private void deleteRecord(Record rec) {
+        String deleteQ = "DELETE FROM " + tableName + " WHERE ";
+        // todo: check if key is not structured
+        var mp = rec.getKey().getStructuredData().getFieldsMap();
+
+        String condition = mp.entrySet()
+            .stream()
+            .map(entry -> entry.getKey() + "=" + entry.getValue().getStringValue())
+            .collect(Collectors.joining(" AND "));
+        deleteQ += condition;
+
+        spark.sql(deleteQ).show();
+    }
 
     @Override
     public void onError(Throwable t) {

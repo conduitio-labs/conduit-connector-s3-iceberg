@@ -4,12 +4,15 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Struct;
+import com.google.protobuf.Value;
 import io.conduit.grpc.Change;
 import io.conduit.grpc.Data;
 import io.conduit.grpc.Destination.Run.Request;
@@ -32,6 +35,7 @@ import org.apache.spark.sql.SparkSession;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import software.amazon.awssdk.regions.Region;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -100,33 +104,16 @@ class DefaultDestinationStreamIT {
                 catalog.dropTable(tableId);
             }
             catalog.createTable(tableId, schema);
+
+            // insert some record into the table
+            String insertQ = "INSERT INTO "
+                + config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName()
+                + " VALUES "
+                + "('info', timestamp 'today', 'an info message', array('trace 1'), 'id1', 123, map('bar','baz')) , "
+                + "('error', timestamp 'today', 'an error message', array('trace 2'), 'id2', 456, map('baz','foo'));";
+            spark.sql(insertQ).show();
         }
-    }
 
-    private SparkSession initSpark() {
-        String catalogName = config.getCatalogName();
-        System.setProperty("aws.region", config.getS3Region());
-        String prefix = "spark.sql.catalog." + catalogName;
-        var builder = SparkSession
-            .builder()
-            .master("local[*]")
-            .appName("Java API Demo")
-            .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-            .config(prefix, "org.apache.iceberg.spark.SparkCatalog")
-            .config(prefix + ".io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
-            .config(prefix + ".s3.endpoint", config.getS3Endpoint())
-            .config(prefix + ".s3.access-key-id", config.getS3AccessKeyId())
-            .config(prefix + ".s3.secret-access-key", config.getS3SecretAccessKey())
-            .config("spark.sql.defaultCatalog", catalogName)
-            .config("spark.driver.extraJavaOptions", "-Daws.region=us-east-1")
-            .config("spark.executor.extraJavaOptions", "-Daws.region=us-east-1");
-
-        config.getCatalogProperties().forEach((k, v) -> {
-            // keys are in the form of catalog.propertyName
-            builder.config(prefix + "." + k.replaceFirst("catalog.", ""), v);
-        });
-
-        return builder.getOrCreate();
     }
 
     @Test
@@ -147,14 +134,39 @@ class DefaultDestinationStreamIT {
         verify(observerMock, never()).onError(any());
 
         var foundRecords = readIcebergRecords();
-        assertEquals(1, foundRecords.size());
-        var record = foundRecords.get(0);
+        assertEquals(3, foundRecords.size());
+
+        var record = foundRecords.get(2); // last record in the sorted list
         assertEquals("debug", record.getField("level"));
         assertEquals(eventTime, record.getField("event_time"));
         assertEquals("a debug message", record.getField("message"));
         assertEquals(eventID, record.getField("event_id"));
-        assertEquals(123, record.getField("integer_field"));
+        assertEquals(789, record.getField("integer_field"));
         assertEquals(Map.of("foo", "bar"), record.getField("map_field"));
+    }
+
+    @Test
+    @SneakyThrows
+    void testDelete() {
+        var observerMock = Mockito.mock(StreamObserver.class);
+        DefaultDestinationStream stream = new DefaultDestinationStream(observerMock, spark, config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName());
+        stream.onNext(
+            Request.newBuilder()
+                .setRecord(Record.newBuilder()
+                    .setKey(
+                        Data.newBuilder()
+                            .setStructuredData(Struct.newBuilder()
+                                .putFields("integer_field", Value.newBuilder()
+                                    .setStringValue("123")
+                                    .build())
+                                .build())
+                    ).setOperation(Operation.OPERATION_DELETE)
+                    .build()
+                ).build()
+        );
+        var foundRecords = readIcebergRecords();
+        assertEquals(1, foundRecords.size());
+        // assert more
     }
 
     @SneakyThrows
@@ -173,7 +185,8 @@ class DefaultDestinationStreamIT {
                 iterable.forEach(records::add);
             }
         }
-
+        // sort the records depending on the "integer_field"
+        records.sort(Comparator.comparingInt(record -> (Integer) record.getField("integer_field")));
         return records;
     }
 
