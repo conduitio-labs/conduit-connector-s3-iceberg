@@ -32,6 +32,7 @@ import org.apache.spark.sql.SparkSession;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.regions.Region;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -67,7 +68,8 @@ class DefaultDestinationStreamIT {
             "catalog.uri", "http://localhost:8181",
             "s3.endpoint", "http://localhost:9000",
             "s3.access-key-id", "admin",
-            "s3.secret-access-key", "password"
+            "s3.secret-access-key", "password",
+            "s3.region", Region.US_EAST_1.toString()
         ));
         catalogProps = Map.of(
             CatalogProperties.CATALOG_IMPL, "org.apache.iceberg.rest.RESTCatalog",
@@ -79,7 +81,8 @@ class DefaultDestinationStreamIT {
             S3FileIOProperties.SECRET_ACCESS_KEY, config.getS3SecretAccessKey()
         );
 
-        spark = initSpark();
+        spark = SparkUtils.create(DefaultDestinationStreamIT.class.getName(), config);
+
         initTable();
     }
 
@@ -102,7 +105,7 @@ class DefaultDestinationStreamIT {
 
     private SparkSession initSpark() {
         String catalogName = config.getCatalogName();
-
+        System.setProperty("aws.region", config.getS3Region());
         String prefix = "spark.sql.catalog." + catalogName;
         var builder = SparkSession
             .builder()
@@ -114,7 +117,9 @@ class DefaultDestinationStreamIT {
             .config(prefix + ".s3.endpoint", config.getS3Endpoint())
             .config(prefix + ".s3.access-key-id", config.getS3AccessKeyId())
             .config(prefix + ".s3.secret-access-key", config.getS3SecretAccessKey())
-            .config("spark.sql.defaultCatalog", catalogName);
+            .config("spark.sql.defaultCatalog", catalogName)
+            .config("spark.driver.extraJavaOptions", "-Daws.region=us-east-1")
+            .config("spark.executor.extraJavaOptions", "-Daws.region=us-east-1");
 
         config.getCatalogProperties().forEach((k, v) -> {
             // keys are in the form of catalog.propertyName

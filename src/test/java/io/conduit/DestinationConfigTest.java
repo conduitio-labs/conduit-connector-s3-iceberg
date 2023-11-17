@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.regions.Region;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -32,6 +33,7 @@ class DestinationConfigTest {
                 "http://localhost:9000",
                 "test-access-key-id",
                 "test-secret-access-key",
+                Region.US_EAST_1.toString(),
                 Map.of(
                     "catalog.catalog-impl", "org.apache.iceberg.rest.RESTCatalog",
                     "catalog.uri", "http://localhost:8181"
