@@ -8,9 +8,9 @@ import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ListValue;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import io.conduit.grpc.Change;
@@ -33,6 +33,7 @@ import org.apache.iceberg.rest.RESTCatalog;
 import org.apache.iceberg.types.Types;
 import org.apache.spark.sql.SparkSession;
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -49,13 +50,14 @@ class DefaultDestinationStreamIT {
     DestinationConfig config;
     Map<String, String> catalogProps;
     Schema schema = new Schema(
-        Types.NestedField.required(1, "level", Types.StringType.get()),
-        Types.NestedField.required(2, "event_time", Types.TimestampType.withZone()),
-        Types.NestedField.required(3, "message", Types.StringType.get()),
-        Types.NestedField.optional(4, "call_stack", Types.ListType.ofRequired(5, Types.StringType.get())),
-        Types.NestedField.required(6, "event_id", Types.StringType.get()),
-        Types.NestedField.optional(7, "integer_field", Types.IntegerType.get()),
-        Types.NestedField.optional(8, "map_field", Types.MapType.ofOptional(123, 456, Types.StringType.get(), Types.StringType.get()))
+        Types.NestedField.required(1, "string_field", Types.StringType.get()),
+        Types.NestedField.required(2, "timestamp_tz_field", Types.TimestampType.withZone()),
+        Types.NestedField.optional(3, "list_field", Types.ListType.ofRequired(100, Types.StringType.get())),
+        Types.NestedField.optional(4, "integer_field", Types.IntegerType.get()),
+        Types.NestedField.optional(5, "float_field", Types.FloatType.get()),
+        Types.NestedField.optional(6, "map_field", Types.MapType.ofOptional(200, 300, Types.StringType.get(), Types.StringType.get())),
+        Types.NestedField.optional(7, "integer_in_float_field", Types.FloatType.get()),
+        Types.NestedField.optional(8, "missing_field", Types.StringType.get())
     );
 
     Namespace namespace = Namespace.of("webapp");
@@ -90,6 +92,18 @@ class DefaultDestinationStreamIT {
         initTable();
     }
 
+    @AfterEach
+    @SneakyThrows
+    void tearDown() {
+        try (RESTCatalog catalog = new RESTCatalog()) {
+            Configuration conf = new Configuration();
+            catalog.setConf(conf);
+            catalog.initialize("demo", catalogProps);
+
+            catalog.dropTable(tableId);
+        }
+    }
+
     @SneakyThrows
     private void initTable() {
         try (RESTCatalog catalog = new RESTCatalog()) {
@@ -106,21 +120,20 @@ class DefaultDestinationStreamIT {
             catalog.createTable(tableId, schema);
 
             // insert some record into the table
-            String insertQ = "INSERT INTO "
-                + config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName()
-                + " VALUES "
-                + "('info', timestamp 'today', 'an info message', array('trace 1'), 'id1', 123, map('bar','baz')) , "
-                + "('error', timestamp 'today', 'an error message', array('trace 2'), 'id2', 456, map('baz','foo'));";
+            String insertQ =
+                "INSERT INTO " + config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName()
+                    + "(string_field, timestamp_tz_field, list_field, integer_field, float_field, integer_in_float_field, map_field, missing_field)"
+                    + " VALUES "
+                    + "('info', timestamp 'today', array('trace 1'), 12, 98.76, 100, map('bar','baz'), 'sunny'), "
+                    + "('error', timestamp 'today', array('trace 2'), 34, 87.65, 200, map('baz','foo'), 'rainy');";
             spark.sql(insertQ).show();
         }
-
     }
 
     @Test
     @SneakyThrows
-    void testInsert() {
+    void testInsertRaw() {
         OffsetDateTime eventTime = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
-        String eventID = UUID.randomUUID().toString();
 
         var observerMock = mock(StreamObserver.class);
         DefaultDestinationStream underTest = new DefaultDestinationStream(
@@ -129,24 +142,37 @@ class DefaultDestinationStreamIT {
             config.fullTableName()
         );
 
-        underTest.onNext(testRecord(eventTime, eventID));
+        underTest.onNext(makeRawRecord(eventTime));
         verify(observerMock).onNext(any());
         verify(observerMock, never()).onError(any());
 
         var foundRecords = readIcebergRecords();
         assertEquals(3, foundRecords.size());
-
-        var record = foundRecords.get(2); // last record in the sorted list
-        assertEquals("debug", record.getField("level"));
-        assertEquals(eventTime, record.getField("event_time"));
-        assertEquals("a debug message", record.getField("message"));
-        assertEquals(eventID, record.getField("event_id"));
-        assertEquals(789, record.getField("integer_field"));
-        assertEquals(Map.of("foo", "bar"), record.getField("map_field"));
+        assertOk(foundRecords.get(2), eventTime);
     }
 
     @Test
     @SneakyThrows
+    void testInsertStructured() {
+        OffsetDateTime eventTime = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
+
+        var observerMock = mock(StreamObserver.class);
+        DefaultDestinationStream underTest = new DefaultDestinationStream(
+            observerMock,
+            spark,
+            config.fullTableName()
+        );
+
+        underTest.onNext(makeStructuredRecord(eventTime));
+        verify(observerMock).onNext(any());
+        verify(observerMock, never()).onError(any());
+
+        var foundRecords = readIcebergRecords();
+        assertEquals(3, foundRecords.size());
+        assertOk(foundRecords.get(2), eventTime);
+    }
+
+    @Test
     void testDelete() {
         var observerMock = Mockito.mock(StreamObserver.class);
         DefaultDestinationStream stream = new DefaultDestinationStream(observerMock, spark, config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName());
@@ -157,7 +183,7 @@ class DefaultDestinationStreamIT {
                         Data.newBuilder()
                             .setStructuredData(Struct.newBuilder()
                                 .putFields("integer_field", Value.newBuilder()
-                                    .setStringValue("123")
+                                    .setStringValue("12")
                                     .build())
                                 .build())
                     ).setOperation(Operation.OPERATION_DELETE)
@@ -167,6 +193,16 @@ class DefaultDestinationStreamIT {
         var foundRecords = readIcebergRecords();
         assertEquals(1, foundRecords.size());
         // assert more
+    }
+
+    private void assertOk(org.apache.iceberg.data.Record record, OffsetDateTime eventTime) {
+        assertEquals("debug", record.getField("string_field"));
+        assertEquals(eventTime, record.getField("timestamp_tz_field"));
+        assertEquals(123, record.getField("integer_field"));
+        assertEquals(456.78f, record.getField("float_field"));
+        assertEquals(987f, record.getField("integer_in_float_field"));
+        assertEquals(List.of("item_1", "item_2"), record.getField("list_field"));
+        assertEquals(Map.of("foo", "bar"), record.getField("map_field"));
     }
 
     @SneakyThrows
@@ -185,25 +221,27 @@ class DefaultDestinationStreamIT {
                 iterable.forEach(records::add);
             }
         }
+
         // sort the records depending on the "integer_field"
         records.sort(Comparator.comparingInt(record -> (Integer) record.getField("integer_field")));
         return records;
     }
 
     @NotNull
-    private Request testRecord(OffsetDateTime eventTime, String eventID) {
+    private Request makeRawRecord(OffsetDateTime eventTime) {
         String eventTimeStr = eventTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
         String jsonString = """
                 {
-                "level": "debug",
-                "event_time":  "%s",
-                "message": "a debug message",
-                "event_id": "%s",
+                "string_field": "debug",
+                "timestamp_tz_field":  "%s",
                 "integer_field": 123,
+                "float_field": 456.78,
+                "integer_in_float_field": 987,
+                "list_field": ["item_1", "item_2"],
                 "map_field": {"foo": "bar"}
                 }
-            """.formatted(eventTimeStr, eventID);
+            """.formatted(eventTimeStr);
 
         return Request.newBuilder()
             .setRecord(Record.newBuilder()
@@ -213,6 +251,46 @@ class DefaultDestinationStreamIT {
                             Data.newBuilder()
                                 .setRawData(ByteString.copyFromUtf8(jsonString))
                                 .build()
+                        ).build()
+                ).setOperation(Operation.OPERATION_CREATE)
+                .build()
+            ).build();
+    }
+
+    @NotNull
+    private Request makeStructuredRecord(OffsetDateTime eventTime) {
+        String eventTimeStr = eventTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+
+        return Request.newBuilder()
+            .setRecord(Record.newBuilder()
+                .setPayload(
+                    Change.newBuilder()
+                        .setAfter(
+                            Data.newBuilder()
+                                .setStructuredData(Struct.newBuilder()
+                                    .putFields("string_field", Value.newBuilder().setStringValue("debug").build())
+                                    .putFields("timestamp_tz_field", Value.newBuilder().setStringValue(eventTimeStr).build())
+                                    .putFields("integer_field", Value.newBuilder().setNumberValue(123).build())
+                                    .putFields("float_field", Value.newBuilder().setNumberValue(456.78).build())
+                                    .putFields("integer_in_float_field", Value.newBuilder().setNumberValue(987).build())
+                                    .putFields(
+                                        "map_field",
+                                        Value.newBuilder().setStructValue(
+                                            Struct.newBuilder()
+                                                .putFields("foo", Value.newBuilder().setStringValue("bar").build())
+                                                .build()
+                                        ).build()
+                                    )
+                                    .putFields(
+                                        "list_field",
+                                        Value.newBuilder().setListValue(
+                                            ListValue.newBuilder()
+                                                .addValues(Value.newBuilder().setStringValue("item_1").build())
+                                                .addValues(Value.newBuilder().setStringValue("item_2").build())
+                                                .build()
+                                        ).build()
+                                    ).build()
+                                ).build()
                         ).build()
                 ).setOperation(Operation.OPERATION_CREATE)
                 .build()
