@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Meroxa, Inc.
+ * Copyright 2023 Meroxa, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,9 +45,13 @@ import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * SparkDestinationStream is a {@link StreamObserver} implementation,
+ * which uses a {@link SparkSession} to write records to Iceberg.
+ */
 @AllArgsConstructor
-public class DefaultDestinationStream implements StreamObserver<Destination.Run.Request> {
-    public static final Logger logger = LoggerFactory.getLogger(DefaultDestinationStream.class);
+public class SparkDestinationStream implements StreamObserver<Destination.Run.Request> {
+    public static final Logger logger = LoggerFactory.getLogger(SparkDestinationStream.class);
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private final StreamObserver<Destination.Run.Response> responseObserver;
