@@ -16,14 +16,18 @@
 
 package io.conduit;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import com.google.protobuf.util.JsonFormat;
 import io.conduit.grpc.Data;
@@ -94,16 +98,70 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
     @SneakyThrows
     private void deleteRecord(Record rec) {
         String deleteQ = "DELETE FROM " + tableName + " WHERE ";
-        // todo: check if key is not structured
-        var mp = rec.getKey().getStructuredData().getFieldsMap();
+        var keyMap = toPojoMap(rec.getKey());
+        if (CollectionUtils.isEmpty(keyMap)) {
+            // prevent deleting all rows
+            throw new IllegalArgumentException("key has no fields");
+        }
 
-        String condition = mp.entrySet()
+        String condition = keyMap.entrySet()
             .stream()
-            .map(entry -> "%s=%s".formatted(entry.getKey(), protobufValueToString(entry.getKey(), entry.getValue())))
+            .map(entry -> "%s=%s".formatted(entry.getKey(), String.valueOf(entry.getValue())))
             .collect(Collectors.joining(" AND "));
         deleteQ += condition;
 
         spark.sql(deleteQ).show();
+    }
+
+    private Map<String, Object> toPojoMap(Data data) {
+        Objects.requireNonNull(data, "cannot transform into POJO map, input is null");
+
+        if (data.hasStructuredData()) {
+            return protobufStructToMap(data.getStructuredData());
+        }
+
+        return jsonStringToMap(data.getRawData());
+    }
+
+    private Map<String, Object> jsonStringToMap(ByteString rawData) {
+        ObjectNode json;
+        try {
+            json = (ObjectNode) mapper.readTree(rawData.toStringUtf8());
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("input data is not JSON", e);
+        }
+
+        Map<String, Object> map = new HashMap<>();
+        json.fields().forEachRemaining(e -> {
+            var fieldName = e.getKey();
+            var value = e.getValue();
+            switch (value.getNodeType()) {
+                case BOOLEAN -> map.put(fieldName, value.booleanValue());
+                case NUMBER -> map.put(fieldName, value.numberValue());
+                case STRING -> map.put(fieldName, value.textValue());
+                default ->
+                    throw new IllegalStateException("type %s of key field %s is not supported".formatted(fieldName, value.getNodeType()));
+            }
+        });
+        return map;
+    }
+
+    private Map<String, Object> protobufStructToMap(Struct data) {
+        Map<String, Object> map = new HashMap<>();
+
+        data.getFieldsMap().forEach((fieldName, val) -> {
+            String s;
+            switch (val.getKindCase()) {
+                case NUMBER_VALUE -> s = String.valueOf(val.getNumberValue());
+                case STRING_VALUE -> s = val.getStringValue();
+                case BOOL_VALUE -> s = String.valueOf(val.getBoolValue());
+                default ->
+                    throw new IllegalStateException("type %s of key field %s is not supported".formatted(fieldName, val.getKindCase()));
+            }
+            map.put(fieldName, s);
+        });
+
+        return map;
     }
 
     private String protobufValueToString(String fieldName, Value val) {
@@ -112,7 +170,8 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
             case NUMBER_VALUE -> s = String.valueOf(val.getNumberValue());
             case STRING_VALUE -> s = val.getStringValue();
             case BOOL_VALUE -> s = String.valueOf(val.getBoolValue());
-            default -> throw new IllegalStateException("type %s of key field %s is not supported".formatted(fieldName, val.getKindCase()));
+            default ->
+                throw new IllegalStateException("type %s of key field %s is not supported".formatted(fieldName, val.getKindCase()));
         }
 
         return s;

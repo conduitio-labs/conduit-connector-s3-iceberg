@@ -164,7 +164,7 @@ class DefaultDestinationStreamIT {
     }
 
     @Test
-    void testDelete() {
+    void testDeleteStructuredKey() {
         var observerMock = Mockito.mock(StreamObserver.class);
         insertTestRecord("testDelete_record", 12);
         insertTestRecord("testDelete_record", 34);
@@ -180,6 +180,37 @@ class DefaultDestinationStreamIT {
                                     .setNumberValue(12)
                                     .build())
                                 .build())
+                    ).setOperation(Operation.OPERATION_DELETE)
+                    .build()
+                ).build()
+        );
+        verify(observerMock).onNext(any());
+        verify(observerMock, never()).onError(any());
+
+        var foundRecords = readIcebergRecords();
+        assertEquals(1, foundRecords.size());
+        assertEquals(34, foundRecords.get(0).getField("integer_field"));
+        // assert more
+    }
+
+    @Test
+    void testDeleteRawDataKey() {
+        var observerMock = Mockito.mock(StreamObserver.class);
+        insertTestRecord("testDelete_record", 12);
+        insertTestRecord("testDelete_record", 34);
+
+        DefaultDestinationStream stream = new DefaultDestinationStream(observerMock, spark, config.fullTableName());
+        stream.onNext(
+            Request.newBuilder()
+                .setRecord(Record.newBuilder()
+                    .setKey(
+                        Data.newBuilder()
+                            .setRawData(ByteString.copyFromUtf8("""
+                                {
+                                  "integer_field": 12
+                                }
+                                """))
+                            .build()
                     ).setOperation(Operation.OPERATION_DELETE)
                     .build()
                 ).build()
