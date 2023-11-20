@@ -138,8 +138,8 @@ class DefaultDestinationStreamIT {
         verify(observerMock, never()).onError(any());
 
         var foundRecords = readIcebergRecords();
-        assertEquals(3, foundRecords.size());
-        assertOk(foundRecords.get(2), eventTime);
+        assertEquals(1, foundRecords.size());
+        assertOk(foundRecords.get(0), eventTime);
     }
 
     @Test
@@ -159,8 +159,8 @@ class DefaultDestinationStreamIT {
         verify(observerMock, never()).onError(any());
 
         var foundRecords = readIcebergRecords();
-        assertEquals(3, foundRecords.size());
-        assertOk(foundRecords.get(2), eventTime);
+        assertEquals(1, foundRecords.size());
+        assertOk(foundRecords.get(0), eventTime);
     }
 
     @Test
