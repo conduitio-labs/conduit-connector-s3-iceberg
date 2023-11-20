@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Value;
 import com.google.protobuf.util.JsonFormat;
 import io.conduit.grpc.Data;
 import io.conduit.grpc.Destination;
@@ -98,11 +99,23 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
 
         String condition = mp.entrySet()
             .stream()
-            .map(entry -> entry.getKey() + "=" + entry.getValue().getStringValue())
+            .map(entry -> "%s=%s".formatted(entry.getKey(), protobufValueToString(entry.getKey(), entry.getValue())))
             .collect(Collectors.joining(" AND "));
         deleteQ += condition;
 
         spark.sql(deleteQ).show();
+    }
+
+    private String protobufValueToString(String fieldName, Value val) {
+        String s;
+        switch (val.getKindCase()) {
+            case NUMBER_VALUE -> s = String.valueOf(val.getNumberValue());
+            case STRING_VALUE -> s = val.getStringValue();
+            case BOOL_VALUE -> s = String.valueOf(val.getBoolValue());
+            default -> throw new IllegalStateException("type %s of key field %s is not supported".formatted(fieldName, val.getKindCase()));
+        }
+
+        return s;
     }
 
     @SneakyThrows

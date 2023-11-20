@@ -60,7 +60,7 @@ class DefaultDestinationStreamIT {
         Types.NestedField.optional(8, "missing_field", Types.StringType.get())
     );
 
-    Namespace namespace = Namespace.of("webapp");
+    Namespace namespace = Namespace.of("conduit");
     TableIdentifier tableId = TableIdentifier.of(namespace, "DefaultDestinationStreamIT");
 
     @BeforeEach
@@ -118,15 +118,6 @@ class DefaultDestinationStreamIT {
                 catalog.dropTable(tableId);
             }
             catalog.createTable(tableId, schema);
-
-            // insert some record into the table
-            String insertQ =
-                "INSERT INTO " + config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName()
-                    + "(string_field, timestamp_tz_field, list_field, integer_field, float_field, integer_in_float_field, map_field, missing_field)"
-                    + " VALUES "
-                    + "('info', timestamp 'today', array('trace 1'), 12, 98.76, 100, map('bar','baz'), 'sunny'), "
-                    + "('error', timestamp 'today', array('trace 2'), 34, 87.65, 200, map('baz','foo'), 'rainy');";
-            spark.sql(insertQ).show();
         }
     }
 
@@ -175,6 +166,9 @@ class DefaultDestinationStreamIT {
     @Test
     void testDelete() {
         var observerMock = Mockito.mock(StreamObserver.class);
+        insertTestRecord("testDelete_record", 12);
+        insertTestRecord("testDelete_record", 34);
+
         DefaultDestinationStream stream = new DefaultDestinationStream(observerMock, spark, config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName());
         stream.onNext(
             Request.newBuilder()
@@ -183,16 +177,31 @@ class DefaultDestinationStreamIT {
                         Data.newBuilder()
                             .setStructuredData(Struct.newBuilder()
                                 .putFields("integer_field", Value.newBuilder()
-                                    .setStringValue("12")
+                                    .setNumberValue(12)
                                     .build())
                                 .build())
                     ).setOperation(Operation.OPERATION_DELETE)
                     .build()
                 ).build()
         );
+        verify(observerMock).onNext(any());
+        verify(observerMock, never()).onError(any());
+
         var foundRecords = readIcebergRecords();
         assertEquals(1, foundRecords.size());
+        assertEquals(34, foundRecords.get(0).getField("integer_field"));
         // assert more
+    }
+
+    private void insertTestRecord(String stringField, int integerField) {
+        String insertQ = """
+            INSERT INTO %s
+            (string_field, timestamp_tz_field, list_field, integer_field, float_field, integer_in_float_field, map_field, missing_field)
+            VALUES
+            ('%s', timestamp 'today', array('trace 2'), %d, 87.65, 200, map('baz', 'foo'), 'rainy');
+            """.formatted(config.fullTableName(), stringField, integerField);
+
+        spark.sql(insertQ).show();
     }
 
     private void assertOk(org.apache.iceberg.data.Record record, OffsetDateTime eventTime) {
