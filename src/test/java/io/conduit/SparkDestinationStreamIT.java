@@ -45,7 +45,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-class DefaultDestinationStreamIT {
+class SparkDestinationStreamIT {
     SparkSession spark;
     DestinationConfig config;
     Map<String, String> catalogProps;
@@ -87,7 +87,7 @@ class DefaultDestinationStreamIT {
             S3FileIOProperties.SECRET_ACCESS_KEY, config.getS3SecretAccessKey()
         );
 
-        spark = SparkUtils.create(DefaultDestinationStreamIT.class.getName(), config);
+        spark = SparkUtils.create(SparkDestinationStreamIT.class.getName(), config);
 
         initTable();
     }
