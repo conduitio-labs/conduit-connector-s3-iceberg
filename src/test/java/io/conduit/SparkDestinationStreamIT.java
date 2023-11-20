@@ -165,36 +165,31 @@ class SparkDestinationStreamIT {
 
     @Test
     void testDeleteStructuredKey() {
-        var observerMock = Mockito.mock(StreamObserver.class);
-        insertTestRecord("testDelete_record", 12);
-        insertTestRecord("testDelete_record", 34);
-
-        SparkDestinationStream stream = new SparkDestinationStream(observerMock, spark, config.fullTableName());
-        stream.onNext(
-            Request.newBuilder()
-                .setRecord(Record.newBuilder()
-                    .setKey(
-                        Data.newBuilder()
-                            .setStructuredData(Struct.newBuilder()
-                                .putFields("integer_field", Value.newBuilder()
-                                    .setNumberValue(12)
-                                    .build())
-                                .build())
-                    ).setOperation(Operation.OPERATION_DELETE)
-                    .build()
-                ).build()
+        testDeleteWithKey(
+            Data.newBuilder()
+                .setStructuredData(Struct.newBuilder()
+                    .putFields("integer_field", Value.newBuilder()
+                        .setNumberValue(12)
+                        .build())
+                    .build())
+                .build()
         );
-        verify(observerMock).onNext(any());
-        verify(observerMock, never()).onError(any());
-
-        var foundRecords = readIcebergRecords();
-        assertEquals(1, foundRecords.size());
-        assertEquals(34, foundRecords.get(0).getField("integer_field"));
-        // assert more
     }
 
     @Test
     void testDeleteRawDataKey() {
+        testDeleteWithKey(
+            Data.newBuilder()
+                .setRawData(ByteString.copyFromUtf8("""
+                    {
+                      "integer_field": 12
+                    }
+                    """))
+                .build()
+        );
+    }
+
+    private void testDeleteWithKey(Data key) {
         var observerMock = Mockito.mock(StreamObserver.class);
         insertTestRecord("testDelete_record", 12);
         insertTestRecord("testDelete_record", 34);
@@ -203,15 +198,8 @@ class SparkDestinationStreamIT {
         stream.onNext(
             Request.newBuilder()
                 .setRecord(Record.newBuilder()
-                    .setKey(
-                        Data.newBuilder()
-                            .setRawData(ByteString.copyFromUtf8("""
-                                {
-                                  "integer_field": 12
-                                }
-                                """))
-                            .build()
-                    ).setOperation(Operation.OPERATION_DELETE)
+                    .setKey(key)
+                    .setOperation(Operation.OPERATION_DELETE)
                     .build()
                 ).build()
         );
