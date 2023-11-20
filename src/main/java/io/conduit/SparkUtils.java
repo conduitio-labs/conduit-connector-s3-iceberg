@@ -1,12 +1,38 @@
+/*
+ * Copyright 2023 Meroxa, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.conduit;
 
 import org.apache.spark.sql.SparkSession;
 
+/**
+ * A collection of utility methods working with Spark.
+ */
 public final class SparkUtils {
     private SparkUtils() {
 
     }
 
+    /**
+     * Creates a new {@link SparkSession} instance.
+     *
+     *@param name Spark application name
+     *@param config A {@link DestinationConfig} to be used for configuring the SparkSession.
+     *@return A new {@link SparkSession} instance.
+     */
     public static SparkSession create(String name, DestinationConfig config) {
         String catalogName = config.getCatalogName();
         System.setProperty("aws.region", config.getS3Region());

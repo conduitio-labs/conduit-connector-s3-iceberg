@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Meroxa, Inc.
+ * Copyright 2023 Meroxa, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,6 @@ import io.conduit.grpc.Destination.Teardown;
 import io.conduit.grpc.DestinationPluginGrpc;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import org.apache.iceberg.catalog.Namespace;
-import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.rest.RESTCatalog;
 import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,12 +31,13 @@ import org.slf4j.LoggerFactory;
 public class DestinationService extends DestinationPluginGrpc.DestinationPluginImplBase {
     public static final Logger logger = LoggerFactory.getLogger(DestinationService.class);
 
-    private DefaultDestinationStream runStream;
+    private SparkDestinationStream runStream;
     private DestinationConfig config;
     private SparkSession spark;
 
     @Override
-    public void configure(Destination.Configure.Request request, StreamObserver<Destination.Configure.Response> responseObserver) {
+    public void configure(Destination.Configure.Request request,
+                          StreamObserver<Destination.Configure.Response> responseObserver) {
         logger.info("Configuring the destination.");
         try {
             // the returned config map is unmodifiable, so we make a copy
@@ -75,14 +73,17 @@ public class DestinationService extends DestinationPluginGrpc.DestinationPluginI
         } catch (Exception e) {
             logger.error("Error while starting Connector.", e);
             responseObserver.onError(
-                Status.INTERNAL.withDescription("couldn't start connector: " + e.getMessage()).withCause(e).asException()
+                Status.INTERNAL
+                    .withDescription("couldn't start connector: " + e.getMessage())
+                    .withCause(e)
+                    .asException()
             );
         }
     }
 
     @Override
     public StreamObserver<Destination.Run.Request> run(StreamObserver<Destination.Run.Response> responseObserver) {
-        this.runStream = new DefaultDestinationStream(responseObserver, spark, config.fullTableName());
+        this.runStream = new SparkDestinationStream(responseObserver, spark, config.fullTableName());
         return runStream;
     }
 
