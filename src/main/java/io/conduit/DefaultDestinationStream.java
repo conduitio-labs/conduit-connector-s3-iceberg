@@ -80,7 +80,7 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
                 insertRecord(rec);
                 break;
             case OPERATION_UPDATE:
-                logger.warn("Updates are not supported yet.");
+                updateRecord(rec);
                 break;
             case OPERATION_DELETE:
                 deleteRecord(rec);
@@ -88,6 +88,12 @@ public class DefaultDestinationStream implements StreamObserver<Destination.Run.
             default:
                 break;
         }
+    }
+
+    @SneakyThrows
+    private void updateRecord(Record rec) {
+        deleteRecord(rec);
+        insertRecord(rec);
     }
 
     @SneakyThrows

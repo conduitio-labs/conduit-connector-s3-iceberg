@@ -124,8 +124,8 @@ class DefaultDestinationStreamIT {
                 "INSERT INTO " + config.getCatalogName() + "." + config.getNamespace() + "." + config.getTableName()
                     + "(string_field, timestamp_tz_field, list_field, integer_field, float_field, integer_in_float_field, map_field, missing_field)"
                     + " VALUES "
-                    + "('info', timestamp 'today', array('trace 1'), 12, 98.76, 100, map('bar','baz'), 'sunny'), "
-                    + "('error', timestamp 'today', array('trace 2'), 34, 87.65, 200, map('baz','foo'), 'rainy');";
+                    + "('info', timestamp 'today', array('trace 1'), 1, 98.76, 100, map('bar','baz'), 'sunny'), " // for delete
+                    + "('error', timestamp 'today', array('trace 2'), 2, 87.65, 200, map('baz','foo'), 'rainy');"; // for update
             spark.sql(insertQ).show();
         }
     }
@@ -142,13 +142,13 @@ class DefaultDestinationStreamIT {
             config.fullTableName()
         );
 
-        underTest.onNext(makeRawRecord(eventTime));
+        underTest.onNext(makeRawRecord(eventTime, Operation.OPERATION_CREATE, 3));
         verify(observerMock).onNext(any());
         verify(observerMock, never()).onError(any());
 
         var foundRecords = readIcebergRecords();
         assertEquals(3, foundRecords.size());
-        assertOk(foundRecords.get(2), eventTime);
+        assertOk(foundRecords.get(2), eventTime, 3);
     }
 
     @Test
@@ -163,13 +163,55 @@ class DefaultDestinationStreamIT {
             config.fullTableName()
         );
 
-        underTest.onNext(makeStructuredRecord(eventTime));
+        underTest.onNext(makeStructuredRecord(eventTime, Operation.OPERATION_CREATE, 3));
         verify(observerMock).onNext(any());
         verify(observerMock, never()).onError(any());
 
         var foundRecords = readIcebergRecords();
         assertEquals(3, foundRecords.size());
-        assertOk(foundRecords.get(2), eventTime);
+        assertOk(foundRecords.get(2), eventTime, 3);
+    }
+
+    @Test
+    @SneakyThrows
+    void testUpdateRaw() {
+        OffsetDateTime eventTime = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
+
+        var observerMock = mock(StreamObserver.class);
+        DefaultDestinationStream underTest = new DefaultDestinationStream(
+            observerMock,
+            spark,
+            config.fullTableName()
+        );
+
+        underTest.onNext(makeRawRecord(eventTime, Operation.OPERATION_UPDATE, 2));
+        verify(observerMock).onNext(any());
+        verify(observerMock, never()).onError(any());
+
+        var foundRecords = readIcebergRecords();
+        assertEquals(2, foundRecords.size());
+        assertOk(foundRecords.get(1), eventTime, 2);
+    }
+
+    @Test
+    @SneakyThrows
+    void testUpdateStructured() {
+        OffsetDateTime eventTime = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
+
+        var observerMock = mock(StreamObserver.class);
+        DefaultDestinationStream underTest = new DefaultDestinationStream(
+            observerMock,
+            spark,
+            config.fullTableName()
+        );
+
+        underTest.onNext(makeStructuredRecord(eventTime,Operation.OPERATION_UPDATE, 2));
+        verify(observerMock).onNext(any());
+        verify(observerMock, never()).onError(any());
+
+        var foundRecords = readIcebergRecords();
+        assertEquals(2, foundRecords.size());
+        assertOk(foundRecords.get(1), eventTime, 2);
     }
 
     @Test
@@ -183,7 +225,7 @@ class DefaultDestinationStreamIT {
                         Data.newBuilder()
                             .setStructuredData(Struct.newBuilder()
                                 .putFields("integer_field", Value.newBuilder()
-                                    .setStringValue("12")
+                                    .setStringValue("1") // a record that already exists
                                     .build())
                                 .build())
                     ).setOperation(Operation.OPERATION_DELETE)
@@ -195,10 +237,10 @@ class DefaultDestinationStreamIT {
         // assert more
     }
 
-    private void assertOk(org.apache.iceberg.data.Record record, OffsetDateTime eventTime) {
+    private void assertOk(org.apache.iceberg.data.Record record, OffsetDateTime eventTime, Integer integer_field) {
         assertEquals("debug", record.getField("string_field"));
         assertEquals(eventTime, record.getField("timestamp_tz_field"));
-        assertEquals(123, record.getField("integer_field"));
+        assertEquals(integer_field, record.getField("integer_field"));
         assertEquals(456.78f, record.getField("float_field"));
         assertEquals(987f, record.getField("integer_in_float_field"));
         assertEquals(List.of("item_1", "item_2"), record.getField("list_field"));
@@ -228,20 +270,20 @@ class DefaultDestinationStreamIT {
     }
 
     @NotNull
-    private Request makeRawRecord(OffsetDateTime eventTime) {
+    private Request makeRawRecord(OffsetDateTime eventTime, Operation op, Integer integer_field) {
         String eventTimeStr = eventTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
         String jsonString = """
                 {
                 "string_field": "debug",
                 "timestamp_tz_field":  "%s",
-                "integer_field": 123,
+                "integer_field": %s,
                 "float_field": 456.78,
                 "integer_in_float_field": 987,
                 "list_field": ["item_1", "item_2"],
                 "map_field": {"foo": "bar"}
                 }
-            """.formatted(eventTimeStr);
+            """.formatted(eventTimeStr, integer_field);
 
         return Request.newBuilder()
             .setRecord(Record.newBuilder()
@@ -252,13 +294,21 @@ class DefaultDestinationStreamIT {
                                 .setRawData(ByteString.copyFromUtf8(jsonString))
                                 .build()
                         ).build()
-                ).setOperation(Operation.OPERATION_CREATE)
+                    // todo: change key to rawData
+                ).setKey(
+                    Data.newBuilder()
+                        .setStructuredData(Struct.newBuilder()
+                            .putFields("integer_field", Value.newBuilder()
+                                .setStringValue(integer_field.toString())
+                                .build())
+                            .build())
+                ).setOperation(op)
                 .build()
             ).build();
     }
 
     @NotNull
-    private Request makeStructuredRecord(OffsetDateTime eventTime) {
+    private Request makeStructuredRecord(OffsetDateTime eventTime, Operation op, Integer integer_field) {
         String eventTimeStr = eventTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
         return Request.newBuilder()
@@ -270,7 +320,7 @@ class DefaultDestinationStreamIT {
                                 .setStructuredData(Struct.newBuilder()
                                     .putFields("string_field", Value.newBuilder().setStringValue("debug").build())
                                     .putFields("timestamp_tz_field", Value.newBuilder().setStringValue(eventTimeStr).build())
-                                    .putFields("integer_field", Value.newBuilder().setNumberValue(123).build())
+                                    .putFields("integer_field", Value.newBuilder().setNumberValue(integer_field).build())
                                     .putFields("float_field", Value.newBuilder().setNumberValue(456.78).build())
                                     .putFields("integer_in_float_field", Value.newBuilder().setNumberValue(987).build())
                                     .putFields(
@@ -292,7 +342,14 @@ class DefaultDestinationStreamIT {
                                     ).build()
                                 ).build()
                         ).build()
-                ).setOperation(Operation.OPERATION_CREATE)
+                ).setKey(
+                    Data.newBuilder()
+                        .setStructuredData(Struct.newBuilder()
+                            .putFields("integer_field", Value.newBuilder()
+                                .setStringValue(integer_field.toString())
+                                .build())
+                            .build())
+                ).setOperation(op)
                 .build()
             ).build();
     }
