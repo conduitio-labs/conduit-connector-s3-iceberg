@@ -26,3 +26,40 @@ by default, is `connectors`). Read more about installing Conduit connectors
 | `s3.region`            | S3 region                                           | true     | -             | "us-east-1"                                                                                                                                                                                                |
 | `catalog.propertyName` | Set a catalog property with the name `propertyName` | true     | -             | {"catalog.uri": "http://localhost:8181"}                                                                                                                                                                   |
 | `catalog.catalog-impl` | Catalog implementation to be used                   | true     | -             | "org.apache.iceberg.rest.RESTCatalog" <br/> Possible values: <br/> - "org.apache.iceberg.hadoop.HadoopCatalog" <br/> - "org.apache.iceberg.jdbc.JdbcCatalog" <br/> - "org.apache.iceberg.rest.RESTCatalog" |
+
+## Example pipeline configuration file
+```yaml
+   ---
+   version: 2.0
+   pipelines:
+     - id: postgres-to-s3-iceberg
+       status: running
+       description: Postgres to S3 Iceberg
+       connectors:
+         - id: pg-source
+           type: source
+           plugin: "builtin:postgres"
+           name: source1
+           settings:
+             url: "postgresql://username:password@localhost/dbname?sslmode=disable"
+             key: id
+             table: "iceberg_input"
+             snapshotMode: "never"
+             cdcMode: "logrepl"
+         - id: s3-iceberg-destination
+           type: destination
+           plugin: standalone:s3-iceberg
+           name:  destination1
+           settings:
+             namespace: "conduit"
+             table.name: "test_table"
+             catalog.name: "demo"
+             catalog.catalog-impl: "org.apache.iceberg.rest.RESTCatalog"
+             catalog.uri: "http://localhost:8181"
+             s3.endpoint: "http://localhost:9000"
+             s3.access-key-id: "admin"
+             s3.secret-access-key: "password"
+             s3.region: "us-east-1"
+  ```
+check [Pipeline Configuration Files Docs](https://github.com/ConduitIO/conduit/blob/main/docs/pipeline_configuration_files.md)
+for more details about how to run this configuration file.
