@@ -7,11 +7,19 @@ which makes it possible to write data into S3 in the [Apache Iceberg](https://ic
 * JDK 17
 * Currently, only Unix-like OSes are supported.
 
-## Usage
+## How to build
 First, the connector needs to be built, which can be done with `scripts/dist.sh`. A new directory, `dist`,
 will be created. The contents of `dist` need to be copied into the Conduit connectors' directory (which, 
 by default, is `connectors`). Read more about installing Conduit connectors 
 [here](https://conduit.io/docs/connectors/installing).
+
+## Destination
+This destination connector pushes data from upstream resources to an S3 iceberg table via Conduit.
+
+For inserts, a record is inserted into the table, which will append an iceberg formatted file into S3. For Deletes, 
+the `Record.Key` field from the OpenCDC record will be used as a condition for deleting a record. Finally, for Updates,
+the record will first be deleted according to its `Record.Key` value, then the updated version will be inserted.
+
 
 ## Configuration
 
