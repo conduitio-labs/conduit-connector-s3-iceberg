@@ -140,7 +140,7 @@ class SparkDestinationStreamIT {
     void testInsertRaw() {
         OffsetDateTime eventTime = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
 
-        underTest.onNext(makeRawRecord(eventTime));
+        underTest.onNext(makeRawRecord(eventTime, Operation.OPERATION_CREATE));
         verify(observerMock).onNext(any());
         verify(observerMock, never()).onError(any());
 
@@ -154,7 +154,7 @@ class SparkDestinationStreamIT {
     void testInsertStructured() {
         OffsetDateTime eventTime = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
 
-        underTest.onNext(makeStructuredRecord(eventTime));
+        underTest.onNext(makeStructuredRecord(eventTime, Operation.OPERATION_CREATE));
         verify(observerMock).onNext(any());
         verify(observerMock, never()).onError(any());
 
@@ -277,6 +277,36 @@ class SparkDestinationStreamIT {
     }
 
     @Test
+    void testUpdateRecordWithRawDataKey() {
+        OffsetDateTime eventTime = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
+        insertTestRecord("testUpdate_rawKey", 34);
+        insertTestRecord("testUpdate_rawKey", 123); // will be updated
+        underTest.onNext(makeRawRecord(eventTime, Operation.OPERATION_UPDATE));
+
+        verify(observerMock).onNext(any());
+        verify(observerMock, never()).onError(any());
+        var foundRecords = readIcebergRecords();
+        assertEquals(2, foundRecords.size());
+        assertEquals(34, foundRecords.get(0).getField("integer_field"));
+        assertOk(foundRecords.get(1), eventTime);
+    }
+
+    @Test
+    void testUpdateRecordWithStructuredDataKey() {
+        OffsetDateTime eventTime = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
+        insertTestRecord("testUpdate_structuredKey", 34);
+        insertTestRecord("testUpdate_structuredKey", 123); // will be updated
+        underTest.onNext(makeStructuredRecord(eventTime, Operation.OPERATION_UPDATE));
+
+        verify(observerMock).onNext(any());
+        verify(observerMock, never()).onError(any());
+        var foundRecords = readIcebergRecords();
+        assertEquals(2, foundRecords.size());
+        assertEquals(34, foundRecords.get(0).getField("integer_field"));
+        assertOk(foundRecords.get(1), eventTime);
+    }
+
+    @Test
     void testDeleteWithMaliciousKey() {
         testDeleteWithKey(
             Data.newBuilder()
@@ -297,7 +327,6 @@ class SparkDestinationStreamIT {
     // Inserts two records, with integer_field set to 12 and 32,
     // and then deletes a record with the given key.
     private void testDeleteWithKey(Data key) {
-        var observerMock = Mockito.mock(StreamObserver.class);
         insertTestRecord("testDelete_record", 12);
         insertTestRecord("testDelete_record", 34);
 
@@ -355,7 +384,7 @@ class SparkDestinationStreamIT {
     }
 
     @NotNull
-    private Request makeRawRecord(OffsetDateTime eventTime) {
+    private Request makeRawRecord(OffsetDateTime eventTime, Operation op) {
         String eventTimeStr = eventTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
         String jsonString = """
@@ -379,13 +408,21 @@ class SparkDestinationStreamIT {
                                 .setRawData(ByteString.copyFromUtf8(jsonString))
                                 .build()
                         ).build()
-                ).setOperation(Operation.OPERATION_CREATE)
+                ).setKey(
+                    Data.newBuilder()
+                        .setRawData(ByteString.copyFromUtf8("""
+                            {
+                              "integer_field": 123
+                            }
+                            """))
+                        .build()
+                ).setOperation(op)
                 .build()
             ).build();
     }
 
     @NotNull
-    private Request makeStructuredRecord(OffsetDateTime eventTime) {
+    private Request makeStructuredRecord(OffsetDateTime eventTime, Operation op) {
         String eventTimeStr = eventTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
         return Request.newBuilder()
@@ -419,7 +456,15 @@ class SparkDestinationStreamIT {
                                     ).build()
                                 ).build()
                         ).build()
-                ).setOperation(Operation.OPERATION_CREATE)
+                ).setKey(
+                    Data.newBuilder()
+                        .setStructuredData(Struct.newBuilder()
+                            .putFields("integer_field", Value.newBuilder()
+                                .setNumberValue(123)
+                                .build())
+                            .build())
+                        .build()
+                ).setOperation(op)
                 .build()
             ).build();
     }
