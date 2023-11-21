@@ -68,9 +68,9 @@ services:
       /usr/bin/mc mb minio/warehouse;
       /usr/bin/mc policy set public minio/warehouse;
       
-      /usr/bin/mc rm -r --force minio/webapp;
-      /usr/bin/mc mb minio/webapp;
-      /usr/bin/mc policy set public minio/webapp;
+      /usr/bin/mc rm -r --force minio/conduit;
+      /usr/bin/mc mb minio/conduit;
+      /usr/bin/mc policy set public minio/conduit;
       tail -f /dev/null
       "
 networks:
