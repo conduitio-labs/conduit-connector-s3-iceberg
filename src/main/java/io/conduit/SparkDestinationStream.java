@@ -146,16 +146,7 @@ public class SparkDestinationStream implements StreamObserver<Destination.Run.Re
     // where keys are field names and values are POJOs.
     // Assumes that the input is a string representing a valid JSON object.
     private Map<String, Object> jsonStringToMap(ByteString rawData) {
-        ObjectNode json;
-        try {
-            JsonNode jsonNode = mapper.readTree(rawData.toStringUtf8());
-            if (!(jsonNode instanceof ObjectNode)) {
-                throw new IllegalArgumentException("input data is not JSON");
-            }
-            json = (ObjectNode) jsonNode;
-        } catch (JsonProcessingException e) {
-            throw new IllegalArgumentException("input data is not JSON", e);
-        }
+        ObjectNode json = readJson(rawData);
 
         Map<String, Object> map = new HashMap<>();
         json.fields().forEachRemaining(e -> {
@@ -165,13 +156,29 @@ public class SparkDestinationStream implements StreamObserver<Destination.Run.Re
                 case BOOLEAN -> map.put(fieldName, value.booleanValue());
                 case NUMBER -> map.put(fieldName, value.numberValue());
                 case STRING -> map.put(fieldName, value.textValue());
-                case NULL, MISSING -> {}
+                case NULL, MISSING -> {
+                }
                 default -> throw new IllegalArgumentException(
                     "type %s of key field %s is not supported".formatted(fieldName, value.getNodeType())
                 );
             }
         });
         return map;
+    }
+
+    private ObjectNode readJson(ByteString rawData) {
+        JsonNode jsonNode;
+        try {
+            jsonNode = mapper.readTree(rawData.toStringUtf8());
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("input data is not JSON", e);
+        }
+
+        if (!(jsonNode instanceof ObjectNode)) {
+            throw new IllegalArgumentException("input data is not JSON");
+        }
+
+        return (ObjectNode) jsonNode;
     }
 
     // Transform input `Struct` object into a map,
