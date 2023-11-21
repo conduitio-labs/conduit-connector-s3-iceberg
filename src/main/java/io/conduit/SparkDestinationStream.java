@@ -59,6 +59,7 @@ import static org.jooq.impl.DSL.table;
 @AllArgsConstructor
 public class SparkDestinationStream implements StreamObserver<Destination.Run.Request> {
     public static final Logger logger = LoggerFactory.getLogger(SparkDestinationStream.class);
+    public static final DSLContext DSL_CONTEXT = DSL.using(SQLDialect.DEFAULT);
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private final StreamObserver<Destination.Run.Response> responseObserver;
@@ -114,9 +115,7 @@ public class SparkDestinationStream implements StreamObserver<Destination.Run.Re
             throw new IllegalArgumentException("key has no fields");
         }
 
-        DSLContext create = DSL.using(SQLDialect.SQLITE);
-
-        var queryBuilder = create.delete(table(tableName));
+        var queryBuilder = DSL_CONTEXT.delete(table(tableName));
         Condition conditions = null;
         for (Map.Entry<String, Object> e : keyMap.entrySet()) {
             if (conditions == null) {
