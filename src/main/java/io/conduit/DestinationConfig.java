@@ -45,7 +45,7 @@ public class DestinationConfig {
     private static final List<String> REQUIRED_KEYS = List.of(
         "catalog.name", "catalog.catalog-impl",
         "namespace", "table.name",
-        "s3.endpoint", "s3.access-key-id", "s3.secret-access-key"
+        "s3.endpoint", "s3.accessKeyId", "s3.secretAccessKey"
     );
 
     @JsonProperty(value = "catalog.name")
@@ -60,10 +60,10 @@ public class DestinationConfig {
     @JsonProperty(value = "s3.endpoint")
     private String s3Endpoint;
 
-    @JsonProperty(value = "s3.access-key-id")
+    @JsonProperty(value = "s3.accessKeyId")
     private String s3AccessKeyId;
 
-    @JsonProperty(value = "s3.secret-access-key")
+    @JsonProperty(value = "s3.secretAccessKey")
     private String s3SecretAccessKey;
 
     @JsonProperty(value = "s3.region")
@@ -79,8 +79,9 @@ public class DestinationConfig {
      * <li><code>catalog.name</code></li>
      * <li><code>s3.endpoint</code></li>
      * <li><code>s3.endpoint</code></li>
-     * <li><code>s3.access-key-id</code></li>
-     * <li><code>s3.secret-access-key</code></li>
+     * <li><code>s3.accessKeyId</code></li>
+     * <li><code>s3.secretAccessKey</code></li>
+     * <li><code>s3.region</code></li>
      *
      * <p>The catalog properties need to be prefixed with <code>catalog.</code>.
      * If, for example, the catalog has a parameter <code>uri=https://example.com</code>,
