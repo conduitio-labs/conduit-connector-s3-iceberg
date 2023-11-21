@@ -33,7 +33,7 @@ the record will first be deleted according to its `Record.Key` value, then the u
 | `s3.secretAccessKey`   | S3 Secret Access Key                                | true     | -             | "exampleSecretKey"                                                                                                                                                                                                 |
 | `s3.region`            | S3 region                                           | true     | -             | "us-east-1"                                                                                                                                                                                                        |
 | `catalog.catalog-impl` | Catalog implementation to be used                   | true     | -             | `"org.apache.iceberg.rest.RESTCatalog"` <br/> Possible values: <br/> - `"org.apache.iceberg.hadoop.HadoopCatalog"` <br/> - `"org.apache.iceberg.jdbc.JdbcCatalog"` <br/> - `"org.apache.iceberg.rest.RESTCatalog"` |
-| `catalog.propertyName` | Set a catalog property with the name `propertyName` | true     | -             | {"catalog.uri": "http://localhost:8181"}                                                                                                                                                                           |
+| `catalog.{propertyName}` | Set a catalog property with the name `propertyName` | true     | -             | {"catalog.uri": "http://localhost:8181"}                                                                                                                                                                           |
 
 ## Example pipeline configuration file
 ```yaml
