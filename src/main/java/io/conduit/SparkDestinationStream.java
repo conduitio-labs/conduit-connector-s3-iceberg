@@ -129,6 +129,9 @@ public class SparkDestinationStream implements StreamObserver<Destination.Run.Re
         spark.sql(deleteQ).show();
     }
 
+    // Transform input `Data` object into a map,
+    // where keys are field names and values are POJOs.
+    // Boolean, number and string values are supported.
     private Map<String, Object> toPojoMap(Data data) {
         Objects.requireNonNull(data, "cannot transform into POJO map, input is null");
 
@@ -139,10 +142,17 @@ public class SparkDestinationStream implements StreamObserver<Destination.Run.Re
         return jsonStringToMap(data.getRawData());
     }
 
+    // Transform input `Data` object into a map,
+    // where keys are field names and values are POJOs.
+    // Assumes that the input is a string representing a valid JSON object.
     private Map<String, Object> jsonStringToMap(ByteString rawData) {
         ObjectNode json;
         try {
-            json = (ObjectNode) mapper.readTree(rawData.toStringUtf8());
+            JsonNode jsonNode = mapper.readTree(rawData.toStringUtf8());
+            if (!(jsonNode instanceof ObjectNode)) {
+                throw new IllegalArgumentException("input data is not JSON");
+            }
+            json = (ObjectNode) jsonNode;
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("input data is not JSON", e);
         }
@@ -155,7 +165,8 @@ public class SparkDestinationStream implements StreamObserver<Destination.Run.Re
                 case BOOLEAN -> map.put(fieldName, value.booleanValue());
                 case NUMBER -> map.put(fieldName, value.numberValue());
                 case STRING -> map.put(fieldName, value.textValue());
-                default -> throw new IllegalStateException(
+                case NULL, MISSING -> {}
+                default -> throw new IllegalArgumentException(
                     "type %s of key field %s is not supported".formatted(fieldName, value.getNodeType())
                 );
             }
@@ -163,6 +174,8 @@ public class SparkDestinationStream implements StreamObserver<Destination.Run.Re
         return map;
     }
 
+    // Transform input `Struct` object into a map,
+    // where keys are field names and values are POJOs.
     private Map<String, Object> protobufStructToMap(Struct data) {
         Map<String, Object> map = new HashMap<>();
 
@@ -172,7 +185,7 @@ public class SparkDestinationStream implements StreamObserver<Destination.Run.Re
                 case NUMBER_VALUE -> s = String.valueOf(val.getNumberValue());
                 case STRING_VALUE -> s = val.getStringValue();
                 case BOOL_VALUE -> s = String.valueOf(val.getBoolValue());
-                default -> throw new IllegalStateException(
+                default -> throw new IllegalArgumentException(
                     "type %s of key field %s is not supported".formatted(fieldName, val.getKindCase())
                 );
             }

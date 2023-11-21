@@ -15,9 +15,11 @@ import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import io.conduit.grpc.Change;
 import io.conduit.grpc.Data;
+import io.conduit.grpc.Destination;
 import io.conduit.grpc.Destination.Run.Request;
 import io.conduit.grpc.Operation;
 import io.conduit.grpc.Record;
+import io.grpc.StatusException;
 import io.grpc.stub.StreamObserver;
 import lombok.SneakyThrows;
 import org.apache.hadoop.conf.Configuration;
@@ -36,19 +38,25 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import software.amazon.awssdk.regions.Region;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 class SparkDestinationStreamIT {
+    SparkDestinationStream underTest;
+
     SparkSession spark;
     DestinationConfig config;
     Map<String, String> catalogProps;
+    StreamObserver<Destination.Run.Response> observerMock;
+
     Schema schema = new Schema(
         Types.NestedField.required(1, "string_field", Types.StringType.get()),
         Types.NestedField.required(2, "timestamp_tz_field", Types.TimestampType.withZone()),
@@ -88,8 +96,14 @@ class SparkDestinationStreamIT {
         );
 
         spark = SparkUtils.create(SparkDestinationStreamIT.class.getName(), config);
-
         initTable();
+
+        observerMock = mock(StreamObserver.class);
+        underTest = new SparkDestinationStream(
+            observerMock,
+            spark,
+            config.fullTableName()
+        );
     }
 
     @AfterEach
@@ -126,13 +140,6 @@ class SparkDestinationStreamIT {
     void testInsertRaw() {
         OffsetDateTime eventTime = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
 
-        var observerMock = mock(StreamObserver.class);
-        SparkDestinationStream underTest = new SparkDestinationStream(
-            observerMock,
-            spark,
-            config.fullTableName()
-        );
-
         underTest.onNext(makeRawRecord(eventTime));
         verify(observerMock).onNext(any());
         verify(observerMock, never()).onError(any());
@@ -146,13 +153,6 @@ class SparkDestinationStreamIT {
     @SneakyThrows
     void testInsertStructured() {
         OffsetDateTime eventTime = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
-
-        var observerMock = mock(StreamObserver.class);
-        SparkDestinationStream underTest = new SparkDestinationStream(
-            observerMock,
-            spark,
-            config.fullTableName()
-        );
 
         underTest.onNext(makeStructuredRecord(eventTime));
         verify(observerMock).onNext(any());
@@ -174,6 +174,87 @@ class SparkDestinationStreamIT {
                     .build())
                 .build()
         );
+
+        verify(observerMock).onNext(any());
+        verify(observerMock, never()).onError(any());
+        var foundRecords = readIcebergRecords();
+        assertEquals(1, foundRecords.size());
+        assertEquals(34, foundRecords.get(0).getField("integer_field"));
+    }
+
+    @Test
+    void testDeleteRawKey_InvalidJSON() {
+        testDeleteWithKey(
+            Data.newBuilder()
+                .setRawData(ByteString.copyFromUtf8("abc123"))
+                .build()
+        );
+
+        var captor = ArgumentCaptor.forClass(Exception.class);
+        verify(observerMock).onError(captor.capture());
+        assertInstanceOf(IllegalArgumentException.class, captor.getValue().getCause());
+        assertEquals("input data is not JSON", captor.getValue().getCause().getMessage());
+    }
+
+    @Test
+    void testDeleteRawKey_NullFields() {
+        testDeleteWithKey(
+            Data.newBuilder()
+                .setRawData(ByteString.copyFromUtf8("""
+                    {
+                      "integer_field": null
+                    }
+                    """))
+                .build()
+        );
+
+        var captor = ArgumentCaptor.forClass(Exception.class);
+        verify(observerMock).onError(captor.capture());
+        assertInstanceOf(IllegalArgumentException.class, captor.getValue().getCause());
+        assertEquals("key has no fields", captor.getValue().getCause().getMessage());
+    }
+
+    @Test
+    void testDeleteRawKey_EmptyJSON() {
+        testDeleteWithKey(
+            Data.newBuilder()
+                .setRawData(ByteString.copyFromUtf8(""))
+                .build()
+        );
+
+        var captor = ArgumentCaptor.forClass(Exception.class);
+        verify(observerMock).onError(captor.capture());
+        assertInstanceOf(StatusException.class, captor.getValue());
+        assertInstanceOf(IllegalArgumentException.class, captor.getValue().getCause());
+        assertEquals("input data is not JSON", captor.getValue().getCause().getMessage());
+    }
+
+    @Test
+    void testDeleteRawKey_NoFields() {
+        testDeleteWithKey(
+            Data.newBuilder()
+                .setRawData(ByteString.copyFromUtf8("{}"))
+                .build()
+        );
+
+        var captor = ArgumentCaptor.forClass(Exception.class);
+        verify(observerMock).onError(captor.capture());
+        assertInstanceOf(IllegalArgumentException.class, captor.getValue().getCause());
+        assertEquals("key has no fields", captor.getValue().getCause().getMessage());
+    }
+
+    @Test
+    void testDeleteStructuredKey_NoFields() {
+        testDeleteWithKey(
+            Data.newBuilder()
+                .setStructuredData(Struct.newBuilder().build())
+                .build()
+        );
+
+        var captor = ArgumentCaptor.forClass(StatusException.class);
+        verify(observerMock).onError(captor.capture());
+        assertInstanceOf(IllegalArgumentException.class, captor.getValue().getCause());
+        assertEquals("key has no fields", captor.getValue().getCause().getMessage());
     }
 
     @Test
@@ -187,44 +268,40 @@ class SparkDestinationStreamIT {
                     """))
                 .build()
         );
+
+        verify(observerMock).onNext(any());
+        verify(observerMock, never()).onError(any());
+        var foundRecords = readIcebergRecords();
+        assertEquals(1, foundRecords.size());
+        assertEquals(34, foundRecords.get(0).getField("integer_field"));
     }
 
     @Test
     void testDeleteWithMaliciousKey() {
-        var observerMock = Mockito.mock(StreamObserver.class);
-        insertTestRecord("testDelete_record", 12);
-        insertTestRecord("testDelete_record", 34);
-
-        SparkDestinationStream stream = new SparkDestinationStream(observerMock, spark, config.fullTableName());
-        stream.onNext(
-            Request.newBuilder()
-                .setRecord(Record.newBuilder()
-                    .setKey(
-                        Data.newBuilder()
-                            .setRawData(ByteString.copyFromUtf8("""
-                                {
-                                  "integer_field": "105 OR 1=1"
-                                }
-                                """))
-                            .build()
-                    ).setOperation(Operation.OPERATION_DELETE)
-                    .build()
-                ).build()
+        testDeleteWithKey(
+            Data.newBuilder()
+                .setRawData(ByteString.copyFromUtf8("""
+                    {
+                      "integer_field": "105 OR 1=1"
+                    }
+                    """))
+                .build()
         );
+
         verify(observerMock).onNext(any());
         verify(observerMock, never()).onError(any());
-
         var foundRecords = readIcebergRecords();
         assertEquals(2, foundRecords.size());
     }
 
+    // Inserts two records, with integer_field set to 12 and 32,
+    // and then deletes a record with the given key.
     private void testDeleteWithKey(Data key) {
         var observerMock = Mockito.mock(StreamObserver.class);
         insertTestRecord("testDelete_record", 12);
         insertTestRecord("testDelete_record", 34);
 
-        SparkDestinationStream stream = new SparkDestinationStream(observerMock, spark, config.fullTableName());
-        stream.onNext(
+        underTest.onNext(
             Request.newBuilder()
                 .setRecord(Record.newBuilder()
                     .setKey(key)
@@ -232,12 +309,6 @@ class SparkDestinationStreamIT {
                     .build()
                 ).build()
         );
-        verify(observerMock).onNext(any());
-        verify(observerMock, never()).onError(any());
-
-        var foundRecords = readIcebergRecords();
-        assertEquals(1, foundRecords.size());
-        assertEquals(34, foundRecords.get(0).getField("integer_field"));
     }
 
     private void insertTestRecord(String stringField, int integerField) {
