@@ -103,7 +103,7 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
                 .build()
         );
         params.put(
-            "s3.access-key-id",
+            "s3.accessKeyId",
             Specifier.Parameter.newBuilder()
                 .setDescription("S3 Access Key ID")
                 .setType(Specifier.Parameter.Type.TYPE_STRING)
@@ -111,7 +111,7 @@ public class SpecifierService extends SpecifierPluginGrpc.SpecifierPluginImplBas
                 .build()
         );
         params.put(
-            "s3.secret-access-key",
+            "s3.secretAccessKey",
             Specifier.Parameter.newBuilder()
                 .setDescription("S3 Secret Access Key")
                 .setType(Specifier.Parameter.Type.TYPE_STRING)
