@@ -79,8 +79,9 @@ public class DestinationConfig {
      * <li><code>catalog.name</code></li>
      * <li><code>s3.endpoint</code></li>
      * <li><code>s3.endpoint</code></li>
-     * <li><code>s3.access-key-id</code></li>
-     * <li><code>s3.secret-access-key</code></li>
+     * <li><code>s3.accessKeyId</code></li>
+     * <li><code>s3.secretAccessKey</code></li>
+     * <li><code>s3.region</code></li>
      *
      * <p>The catalog properties need to be prefixed with <code>catalog.</code>.
      * If, for example, the catalog has a parameter <code>uri=https://example.com</code>,

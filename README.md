@@ -65,8 +65,8 @@ pipelines:
          catalog.catalog-impl: "org.apache.iceberg.rest.RESTCatalog"
          catalog.uri: "http://localhost:8181"
          s3.endpoint: "http://localhost:9000"
-         s3.access-key-id: "admin"
-         s3.secret-access-key: "password"
+         s3.accessKeyId: "admin"
+         s3.secretAccessKey: "password"
          s3.region: "us-east-1"
   ```
 check [Pipeline Configuration Files Docs](https://github.com/ConduitIO/conduit/blob/main/docs/pipeline_configuration_files.md)
