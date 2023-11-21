@@ -189,6 +189,35 @@ class SparkDestinationStreamIT {
         );
     }
 
+    @Test
+    void testDeleteWithMaliciousKey() {
+        var observerMock = Mockito.mock(StreamObserver.class);
+        insertTestRecord("testDelete_record", 12);
+        insertTestRecord("testDelete_record", 34);
+
+        SparkDestinationStream stream = new SparkDestinationStream(observerMock, spark, config.fullTableName());
+        stream.onNext(
+            Request.newBuilder()
+                .setRecord(Record.newBuilder()
+                    .setKey(
+                        Data.newBuilder()
+                            .setRawData(ByteString.copyFromUtf8("""
+                                {
+                                  "integer_field": "105 OR 1=1"
+                                }
+                                """))
+                            .build()
+                    ).setOperation(Operation.OPERATION_DELETE)
+                    .build()
+                ).build()
+        );
+        verify(observerMock).onNext(any());
+        verify(observerMock, never()).onError(any());
+
+        var foundRecords = readIcebergRecords();
+        assertEquals(2, foundRecords.size());
+    }
+
     private void testDeleteWithKey(Data key) {
         var observerMock = Mockito.mock(StreamObserver.class);
         insertTestRecord("testDelete_record", 12);
@@ -209,7 +238,6 @@ class SparkDestinationStreamIT {
         var foundRecords = readIcebergRecords();
         assertEquals(1, foundRecords.size());
         assertEquals(34, foundRecords.get(0).getField("integer_field"));
-        // assert more
     }
 
     private void insertTestRecord(String stringField, int integerField) {

@@ -73,7 +73,13 @@
             <version>${iceberg.version}</version>
         </dependency>
 
-<!--         aws-->
+        <dependency>
+            <groupId>org.jooq</groupId>
+            <artifactId>jooq</artifactId>
+            <version>3.18.7</version>
+        </dependency>
+
+        <!-- AWS -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>

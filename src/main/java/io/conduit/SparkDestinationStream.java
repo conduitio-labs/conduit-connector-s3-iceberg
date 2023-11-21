@@ -20,7 +20,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -28,7 +27,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Struct;
-import com.google.protobuf.Value;
 import com.google.protobuf.util.JsonFormat;
 import io.conduit.grpc.Data;
 import io.conduit.grpc.Destination;
@@ -42,8 +40,17 @@ import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SaveMode;
 import org.apache.spark.sql.SparkSession;
+import org.jooq.Condition;
+import org.jooq.DSLContext;
+import org.jooq.SQLDialect;
+import org.jooq.conf.ParamType;
+import org.jooq.impl.DSL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.jooq.impl.DSL.field;
+import static org.jooq.impl.DSL.table;
+
 
 /**
  * SparkDestinationStream is a {@link StreamObserver} implementation,
@@ -101,19 +108,25 @@ public class SparkDestinationStream implements StreamObserver<Destination.Run.Re
 
     @SneakyThrows
     private void deleteRecord(Record rec) {
-        String deleteQ = "DELETE FROM " + tableName + " WHERE ";
         var keyMap = toPojoMap(rec.getKey());
         if (CollectionUtils.isEmpty(keyMap)) {
             // prevent deleting all rows
             throw new IllegalArgumentException("key has no fields");
         }
 
-        String condition = keyMap.entrySet()
-            .stream()
-            .map(entry -> "%s=%s".formatted(entry.getKey(), String.valueOf(entry.getValue())))
-            .collect(Collectors.joining(" AND "));
-        deleteQ += condition;
+        DSLContext create = DSL.using(SQLDialect.SQLITE);
 
+        var queryBuilder = create.delete(table(tableName));
+        Condition conditions = null;
+        for (Map.Entry<String, Object> e : keyMap.entrySet()) {
+            if (conditions == null) {
+                conditions = field(e.getKey()).eq(e.getValue());
+            } else {
+                conditions.and(field(e.getKey()).eq(e.getValue()));
+            }
+        }
+
+        String deleteQ = queryBuilder.where(conditions).getSQL(ParamType.INLINED);
         spark.sql(deleteQ).show();
     }
 
@@ -143,8 +156,9 @@ public class SparkDestinationStream implements StreamObserver<Destination.Run.Re
                 case BOOLEAN -> map.put(fieldName, value.booleanValue());
                 case NUMBER -> map.put(fieldName, value.numberValue());
                 case STRING -> map.put(fieldName, value.textValue());
-                default ->
-                    throw new IllegalStateException("type %s of key field %s is not supported".formatted(fieldName, value.getNodeType()));
+                default -> throw new IllegalStateException(
+                    "type %s of key field %s is not supported".formatted(fieldName, value.getNodeType())
+                );
             }
         });
         return map;
@@ -159,26 +173,14 @@ public class SparkDestinationStream implements StreamObserver<Destination.Run.Re
                 case NUMBER_VALUE -> s = String.valueOf(val.getNumberValue());
                 case STRING_VALUE -> s = val.getStringValue();
                 case BOOL_VALUE -> s = String.valueOf(val.getBoolValue());
-                default ->
-                    throw new IllegalStateException("type %s of key field %s is not supported".formatted(fieldName, val.getKindCase()));
+                default -> throw new IllegalStateException(
+                    "type %s of key field %s is not supported".formatted(fieldName, val.getKindCase())
+                );
             }
             map.put(fieldName, s);
         });
 
         return map;
-    }
-
-    private String protobufValueToString(String fieldName, Value val) {
-        String s;
-        switch (val.getKindCase()) {
-            case NUMBER_VALUE -> s = String.valueOf(val.getNumberValue());
-            case STRING_VALUE -> s = val.getStringValue();
-            case BOOL_VALUE -> s = String.valueOf(val.getBoolValue());
-            default ->
-                throw new IllegalStateException("type %s of key field %s is not supported".formatted(fieldName, val.getKindCase()));
-        }
-
-        return s;
     }
 
     @SneakyThrows
