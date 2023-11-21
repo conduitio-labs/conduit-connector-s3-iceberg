@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Meroxa, Inc.
+ * Copyright 2023 Meroxa, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,8 +81,8 @@ public class DestinationConfig {
      * <li><code>s3.endpoint</code></li>
      * <li><code>s3.access-key-id</code></li>
      * <li><code>s3.secret-access-key</code></li>
-     * <p>
-     * The catalog properties need to be prefixed with <code>catalog.</code>.
+     *
+     * <p>The catalog properties need to be prefixed with <code>catalog.</code>.
      * If, for example, the catalog has a parameter <code>uri=https://example.com</code>,
      * then the following should be added to the map:
      * <code>catalog.uri=https://example.com</code>
