@@ -21,8 +21,8 @@ class DestinationConfigTest {
             "catalog.catalog-impl", "org.apache.iceberg.rest.RESTCatalog",
             "catalog.uri", "http://localhost:8181",
             "s3.endpoint", "http://localhost:9000",
-            "s3.access-key-id", "test-access-key-id",
-            "s3.secret-access-key", "test-secret-access-key",
+            "s3.accessKeyId", "test-access-key-id",
+            "s3.secretAccessKey", "test-secret-access-key",
             "s3.region", Region.US_EAST_1.toString()
         );
 
@@ -49,7 +49,7 @@ class DestinationConfigTest {
         var required = List.of(
             "catalog.name", "catalog.catalog-impl",
             "namespace", "table.name",
-            "s3.endpoint", "s3.access-key-id", "s3.secret-access-key"
+            "s3.endpoint", "s3.accessKeyId", "s3.secretAccessKey"
         );
         var validCfg = Map.of(
             "catalog.name", "test_catalog",
@@ -60,8 +60,8 @@ class DestinationConfigTest {
             "table.name", "test_table",
 
             "s3.endpoint", "http://localhost:9000",
-            "s3.access-key-id", "test-access-key-id",
-            "s3.secret-access-key", "test-secret-access-key"
+            "s3.accessKeyId", "test-access-key-id",
+            "s3.secretAccessKey", "test-secret-access-key"
         );
         for (String property : required) {
             var input = new HashMap<>(validCfg);

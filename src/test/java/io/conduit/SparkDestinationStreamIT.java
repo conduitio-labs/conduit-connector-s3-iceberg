@@ -81,8 +81,8 @@ class SparkDestinationStreamIT {
             "catalog.catalog-impl", "org.apache.iceberg.rest.RESTCatalog",
             "catalog.uri", "http://localhost:8181",
             "s3.endpoint", "http://localhost:9000",
-            "s3.access-key-id", "admin",
-            "s3.secret-access-key", "password",
+            "s3.accessKeyId", "admin",
+            "s3.secretAccessKey", "password",
             "s3.region", Region.US_EAST_1.toString()
         ));
         catalogProps = Map.of(
