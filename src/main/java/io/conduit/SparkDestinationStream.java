@@ -97,7 +97,7 @@ public class SparkDestinationStream implements StreamObserver<Destination.Run.Re
                 insertRecord(rec);
                 break;
             case OPERATION_UPDATE:
-                logger.warn("Updates are not supported yet.");
+                updateRecord(rec);
                 break;
             case OPERATION_DELETE:
                 deleteRecord(rec);
@@ -105,6 +105,12 @@ public class SparkDestinationStream implements StreamObserver<Destination.Run.Re
             default:
                 break;
         }
+    }
+
+    @SneakyThrows
+    private void updateRecord(Record rec) {
+        deleteRecord(rec);
+        insertRecord(rec);
     }
 
     @SneakyThrows

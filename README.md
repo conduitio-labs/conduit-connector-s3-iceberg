@@ -20,7 +20,6 @@ For inserts, a record is inserted into the table, which will append an iceberg f
 the `Record.Key` field from the OpenCDC record will be used as a condition for deleting a record. Finally, for Updates,
 the record will first be deleted according to its `Record.Key` value, then the updated version will be inserted.
 
-
 ## Configuration
 
 | Field JSON Name        | Description                                         | Required | Default Value | Example                                                                                                                                                                                                            |
@@ -71,3 +70,8 @@ pipelines:
   ```
 check [Pipeline Configuration Files Docs](https://github.com/ConduitIO/conduit/blob/main/docs/pipeline_configuration_files.md)
 for more details about how to run this configuration file.
+
+## Known Limitations
+In rare occasions, when updating a record (which consists of first deleting and then inserting the updated one),
+If an error occurred while inserting the new record, then an Error will be returned, and a record might be lost if the
+error happened after the delete operation and before the insert. Check your table's snapshots to recover the data if lost.
