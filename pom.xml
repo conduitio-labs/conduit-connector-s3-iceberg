@@ -16,7 +16,7 @@
         <protobuf.version>3.25.2</protobuf.version>
         <protoc.version>3.19.2</protoc.version>
         <mockito.version>5.9.0</mockito.version>
-        <junit.version>5.10.1</junit.version>
+        <junit.version>5.10.2</junit.version>
         <logback.version>1.4.14</logback.version>
         <iceberg.version>1.4.3</iceberg.version>
     </properties>
