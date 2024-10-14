@@ -15,7 +15,7 @@
         <grpc.version>1.68.0</grpc.version>
         <protobuf.version>4.28.0</protobuf.version>
         <protoc.version>3.19.2</protoc.version>
-        <mockito.version>5.12.0</mockito.version>
+        <mockito.version>5.14.1</mockito.version>
         <junit.version>5.11.1</junit.version>
         <logback.version>1.5.6</logback.version>
         <iceberg.version>1.6.1</iceberg.version>
