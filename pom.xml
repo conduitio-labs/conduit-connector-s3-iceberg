@@ -76,7 +76,7 @@
         <dependency>
             <groupId>org.jooq</groupId>
             <artifactId>jooq</artifactId>
-            <version>3.19.13</version>
+            <version>3.19.15</version>
         </dependency>
 
         <!-- AWS -->
