@@ -17,7 +17,7 @@
         <protoc.version>3.19.2</protoc.version>
         <mockito.version>5.15.2</mockito.version>
         <junit.version>5.11.4</junit.version>
-        <logback.version>1.5.15</logback.version>
+        <logback.version>1.5.16</logback.version>
         <iceberg.version>1.7.1</iceberg.version>
     </properties>
 
