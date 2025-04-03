@@ -12,13 +12,13 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <grpc.version>1.69.0</grpc.version>
+        <grpc.version>1.70.0</grpc.version>
         <protobuf.version>4.29.3</protobuf.version>
         <protoc.version>3.19.2</protoc.version>
-        <mockito.version>5.15.2</mockito.version>
-        <junit.version>5.11.4</junit.version>
-        <logback.version>1.5.16</logback.version>
-        <iceberg.version>1.7.1</iceberg.version>
+        <mockito.version>5.16.0</mockito.version>
+        <junit.version>5.12.1</junit.version>
+        <logback.version>1.5.18</logback.version>
+        <iceberg.version>1.8.1</iceberg.version>
     </properties>
 
     <dependencyManagement>
@@ -76,34 +76,34 @@
         <dependency>
             <groupId>org.jooq</groupId>
             <artifactId>jooq</artifactId>
-            <version>3.19.16</version>
+            <version>3.19.18</version>
         </dependency>
 
         <!-- AWS -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
-            <version>2.29.40</version>
+            <version>2.31.12</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>sts</artifactId>
-            <version>2.29.46</version>
+            <version>2.30.37</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>kms</artifactId>
-            <version>2.29.46</version>
+            <version>2.31.12</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>glue</artifactId>
-            <version>2.30.2</version>
+            <version>2.30.12</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>dynamodb</artifactId>
-            <version>2.29.51</version>
+            <version>2.31.12</version>
         </dependency>
 
         <!-- Testing -->
@@ -189,7 +189,7 @@
                     <dependency>
                         <groupId>com.puppycrawl.tools</groupId>
                         <artifactId>checkstyle</artifactId>
-                        <version>10.21.1</version>
+                        <version>10.22.0</version>
                     </dependency>
                 </dependencies>
                 <configuration>
@@ -271,7 +271,7 @@
                     <dependency>
                         <groupId>org.apache.logging.log4j</groupId>
                         <artifactId>log4j-transform-maven-shade-plugin-extensions</artifactId>
-                        <version>0.1.0</version>
+                        <version>0.2.0</version>
                     </dependency>
                 </dependencies>
                 <executions>
